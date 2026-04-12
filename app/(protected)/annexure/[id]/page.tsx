@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/common/status-badge";
+import { useAuth } from "@/components/providers/auth-provider";
 import { storage } from "@/lib/firebase";
 import {
   createAttachment,
@@ -86,6 +87,7 @@ export default function AnnexurePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const annexureId = params.id;
+  const { isSuperAdmin } = useAuth();
 
   const [annexure, setAnnexure] = useState<Annexure | null>(null);
   const [attachments, setAttachments] = useState<AttachmentDoc[]>([]);
@@ -213,6 +215,11 @@ export default function AnnexurePage() {
   };
 
   const handleCreateAttachment = async () => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can upload attachments");
+      return;
+    }
+
     if (attachmentFiles.length === 0) {
       toast.error("Please select an Excel file");
       return;
@@ -236,6 +243,11 @@ export default function AnnexurePage() {
   };
 
   const handleUpdateAttachment = async () => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can update attachments");
+      return;
+    }
+
     if (!editingAttachment || !attachmentName.trim()) {
       toast.error("Attachment name is required");
       return;
@@ -252,6 +264,11 @@ export default function AnnexurePage() {
   };
 
   const handleCreateContact = async () => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can add contacts");
+      return;
+    }
+
     if (!contactName.trim() || !contactEmail.trim() || !contactNumber.trim()) {
       toast.error("Name, email and number are required");
       return;
@@ -276,6 +293,11 @@ export default function AnnexurePage() {
   };
 
   const handleUpdateContact = async () => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can update contacts");
+      return;
+    }
+
     if (!editingContact || !contactName.trim() || !contactEmail.trim() || !contactNumber.trim()) {
       toast.error("Name, email and number are required");
       return;
@@ -299,6 +321,11 @@ export default function AnnexurePage() {
   };
 
   const handleAddMainRow = async () => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can add or update rows");
+      return;
+    }
+
     if (!requirements.trim()) {
       toast.error("Requirements are required");
       return;
@@ -354,6 +381,11 @@ export default function AnnexurePage() {
   };
 
   const openRowEditor = (row?: AnnexureTableRow) => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can edit rows");
+      return;
+    }
+
     if (row) {
       setEditingRow(row);
       setRequirements(row.requirements);
@@ -405,10 +437,12 @@ export default function AnnexurePage() {
       <Card className="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Annexure Table</CardTitle>
-          <Button onClick={() => openRowEditor()}>
-            <Plus className="mr-2 size-4" />
-            Add Row
-          </Button>
+          {isSuperAdmin ? (
+            <Button onClick={() => openRowEditor()}>
+              <Plus className="mr-2 size-4" />
+              Add Row
+            </Button>
+          ) : null}
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -416,18 +450,18 @@ export default function AnnexurePage() {
               <TableHeader className="bg-slate-200">
                 <TableRow className="border-slate-300 hover:bg-slate-200">
                   <TableHead className="w-16 text-center text-slate-900">S No.</TableHead>
-                  <TableHead className="w-[30rem] text-center text-slate-900">Requirements</TableHead>
+                  <TableHead className="w-120 text-center text-slate-900">Requirements</TableHead>
                   <TableHead className="w-44 text-center text-slate-900">Current Status</TableHead>
                   <TableHead className="w-64 text-center text-slate-900">Attachment</TableHead>
                   <TableHead className="w-72 text-center text-slate-900">Concerned Team Member(s)</TableHead>
-                  <TableHead className="w-[44rem] text-center text-slate-900">Latest Remark</TableHead>
+                  <TableHead className="w-176 text-center text-slate-900">Latest Remark</TableHead>
                   <TableHead className="w-28 text-center text-slate-900">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-14 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="h-14 text-center text-muted-foreground">
                       No rows in annexure table.
                     </TableCell>
                   </TableRow>
@@ -440,7 +474,7 @@ export default function AnnexurePage() {
                     >
                       <TableCell className="text-center align-middle font-medium">{index + 1}</TableCell>
                       <TableCell className="text-center align-middle">
-                        <p className="mx-auto max-w-[30rem] whitespace-normal wrap-break-word leading-6" title={row.requirements}>
+                        <p className="mx-auto max-w-120 whitespace-normal wrap-break-word leading-6" title={row.requirements}>
                           {row.requirements}
                         </p>
                       </TableCell>
@@ -484,21 +518,25 @@ export default function AnnexurePage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-center align-middle">
-                        <p className="mx-auto max-w-[44rem] whitespace-normal wrap-break-word leading-6" title={row.latestRemark || "-"}>
+                        <p className="mx-auto max-w-176 whitespace-normal wrap-break-word leading-6" title={row.latestRemark || "-"}>
                           {row.latestRemark || "-"}
                         </p>
                       </TableCell>
                       <TableCell className="text-center align-middle">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            openRowEditor(row);
-                          }}
-                        >
-                          Update
-                        </Button>
+                        {isSuperAdmin ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openRowEditor(row);
+                            }}
+                          >
+                            Update
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">View</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -514,10 +552,12 @@ export default function AnnexurePage() {
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>List of Attachment</span>
-              <Button onClick={() => setAttachmentModalOpen(true)}>
-                <Plus className="mr-2 size-4" />
-                Upload Excel
-              </Button>
+              {isSuperAdmin ? (
+                <Button onClick={() => setAttachmentModalOpen(true)}>
+                  <Plus className="mr-2 size-4" />
+                  Upload Excel
+                </Button>
+              ) : null}
             </DialogTitle>
           </DialogHeader>
           <div className="overflow-x-auto">
@@ -563,34 +603,38 @@ export default function AnnexurePage() {
                         <StatusBadge status={item.status} />
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="inline-flex items-center gap-1">
-                          <Button
-                            size="icon-sm"
-                            variant="outline"
-                            title="Update"
-                            aria-label="Update"
-                            onClick={() => {
-                              setEditingAttachment(item);
-                              setAttachmentName(item.name);
-                            }}
-                          >
-                            Update
-                          </Button>
-                          <Button
-                            size="icon-sm"
-                            variant="outline"
-                            title={item.status === "disabled" ? "Enable" : "Disable"}
-                            aria-label={item.status === "disabled" ? "Enable" : "Disable"}
-                            onClick={() =>
-                              updateAttachmentStatus(
-                                item.id,
-                                item.status === "disabled" ? "active" : "disabled",
-                              )
-                            }
-                          >
-                            {item.status === "disabled" ? "Enable" : "Disable"}
-                          </Button>
-                        </div>
+                        {isSuperAdmin ? (
+                          <div className="inline-flex items-center gap-1">
+                            <Button
+                              size="icon-sm"
+                              variant="outline"
+                              title="Update"
+                              aria-label="Update"
+                              onClick={() => {
+                                setEditingAttachment(item);
+                                setAttachmentName(item.name);
+                              }}
+                            >
+                              Update
+                            </Button>
+                            <Button
+                              size="icon-sm"
+                              variant="outline"
+                              title={item.status === "disabled" ? "Enable" : "Disable"}
+                              aria-label={item.status === "disabled" ? "Enable" : "Disable"}
+                              onClick={() =>
+                                updateAttachmentStatus(
+                                  item.id,
+                                  item.status === "disabled" ? "active" : "disabled",
+                                )
+                              }
+                            >
+                              {item.status === "disabled" ? "Enable" : "Disable"}
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">View</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -606,10 +650,12 @@ export default function AnnexurePage() {
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>List of Contact in Attachment</span>
-              <Button onClick={() => setContactModalOpen(true)}>
-                <Plus className="mr-2 size-4" />
-                Add Contact
-              </Button>
+              {isSuperAdmin ? (
+                <Button onClick={() => setContactModalOpen(true)}>
+                  <Plus className="mr-2 size-4" />
+                  Add Contact
+                </Button>
+              ) : null}
             </DialogTitle>
           </DialogHeader>
           <div className="overflow-x-auto">
@@ -650,36 +696,40 @@ export default function AnnexurePage() {
                         <StatusBadge status={item.status} />
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="inline-flex items-center gap-1">
-                          <Button
-                            size="icon-sm"
-                            variant="outline"
-                            title="Update"
-                            aria-label="Update"
-                            onClick={() => {
-                              setEditingContact(item);
-                              setContactName(item.name);
-                              setContactEmail(item.email);
-                              setContactNumber(item.number);
-                            }}
-                          >
-                            Update
-                          </Button>
-                          <Button
-                            size="icon-sm"
-                            variant="outline"
-                            title={item.status === "disabled" ? "Enable" : "Disable"}
-                            aria-label={item.status === "disabled" ? "Enable" : "Disable"}
-                            onClick={() =>
-                              updateContactStatus(
-                                item.id,
-                                item.status === "disabled" ? "active" : "disabled",
-                              )
-                            }
-                          >
-                            {item.status === "disabled" ? "Enable" : "Disable"}
-                          </Button>
-                        </div>
+                        {isSuperAdmin ? (
+                          <div className="inline-flex items-center gap-1">
+                            <Button
+                              size="icon-sm"
+                              variant="outline"
+                              title="Update"
+                              aria-label="Update"
+                              onClick={() => {
+                                setEditingContact(item);
+                                setContactName(item.name);
+                                setContactEmail(item.email);
+                                setContactNumber(item.number);
+                              }}
+                            >
+                              Update
+                            </Button>
+                            <Button
+                              size="icon-sm"
+                              variant="outline"
+                              title={item.status === "disabled" ? "Enable" : "Disable"}
+                              aria-label={item.status === "disabled" ? "Enable" : "Disable"}
+                              onClick={() =>
+                                updateContactStatus(
+                                  item.id,
+                                  item.status === "disabled" ? "active" : "disabled",
+                                )
+                              }
+                            >
+                              {item.status === "disabled" ? "Enable" : "Disable"}
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">View</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

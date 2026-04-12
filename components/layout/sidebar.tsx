@@ -1,45 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, FolderKanban, LogOut } from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { logoutUser } from "@/lib/auth";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard, FolderKanban, ShieldUser } from "lucide-react";
+import { useAuth } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
-const navItems = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "Sections",
-    href: "/section",
-    icon: FolderKanban,
-  },
-];
-
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
+  const { isSuperAdmin } = useAuth();
 
-  const handleLogout = async () => {
-    try {
-      await logoutUser();
-      toast.success("Logged out successfully");
-      router.replace("/login");
-    } catch {
-      toast.error("Unable to logout. Please try again.");
-    }
-  };
+  const navItems = [
+    {
+      label: "Dashboard",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      label: "Sections",
+      href: "/section",
+      icon: FolderKanban,
+    },
+    ...(isSuperAdmin
+      ? [
+          {
+            label: "Users",
+            href: "/users",
+            icon: ShieldUser,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:w-64 md:flex-col md:justify-between bg-[#8a8a8a] px-4  shadow-[6px_0_20px_rgba(0,0,0,0.12)]">
+      <aside className="hidden md:flex md:w-64 md:flex-col bg-[#8a8a8a] px-4 shadow-[6px_0_20px_rgba(0,0,0,0.12)]">
         
         <div className="">
           
@@ -82,19 +79,10 @@ export function Sidebar() {
           </nav>
         </div>
 
-        {/* Logout Button */}
-        <Button
-          variant="outline"
-          className="justify-start gap-2 border-black/20 bg-white/95 text-black hover:bg-white"
-          onClick={handleLogout}
-        >
-          <LogOut className="size-4" />
-          Logout
-        </Button>
       </aside>
 
       {/* Mobile Header */}
-      <header className="flex items-center justify-between bg-[#8a8a8a] px-4 py-3 md:hidden">
+      <header className="flex items-center bg-[#8a8a8a] px-4 py-3 md:hidden">
         
         {/* ✅ Logo only */}
         <Image
@@ -104,14 +92,6 @@ export function Sidebar() {
           height={40}
         />
 
-        <Button
-          size="sm"
-          variant="outline"
-          className="border-white/20 bg-white text-black hover:bg-white"
-          onClick={handleLogout}
-        >
-          Logout
-        </Button>
       </header>
     </>
   );

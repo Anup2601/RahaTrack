@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BackButton } from "@/components/common/back-button";
-import { loginWithEmailPassword, loginWithGoogle } from "@/lib/auth";
+import { loginWithEmailPassword } from "@/lib/auth";
 import { useAuth } from "@/components/providers/auth-provider";
 
 const loginSchema = z.object({
@@ -24,7 +25,6 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -55,31 +55,26 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
-    try {
-      await loginWithGoogle();
-      toast.success("Logged in with Google");
-      router.replace("/dashboard");
-    } catch {
-      toast.error("Google login failed");
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-transparent p-4">
-      <BackButton
-        fallbackRoute="/"
-        className="absolute left-4 top-4 rounded-xl"
-      />
-      <Card className="w-full max-w-md rounded-2xl border-white/50 bg-white/90 shadow-xl shadow-sky-100 backdrop-blur">
-        <CardHeader className="space-y-2 text-center">
-          <CardTitle className="text-3xl">Welcome Back</CardTitle>
-          <CardDescription>Sign in to manage your PLI sections and annexures</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
+      <div className="w-full max-w-md space-y-4">
+        <div className="flex justify-center">
+          <Image
+            src="/rahalogo.png"
+            alt="Raha logo"
+            width={162}
+            height={162}
+            className="h-24 w-24 object-contain"
+            priority
+          />
+        </div>
+
+        <Card className="rounded-2xl border-white/50 bg-white/90 shadow-xl shadow-sky-100 backdrop-blur">
+          <CardHeader className="space-y-2 text-center">
+            <CardTitle className="text-3xl">Welcome Back</CardTitle>
+            <CardDescription>Sign in to manage your account</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -96,12 +91,9 @@ export default function LoginPage() {
               {loading ? "Signing in..." : "Login"}
             </Button>
           </form>
-
-          <Button variant="outline" className="w-full" onClick={handleGoogleLogin} disabled={googleLoading}>
-            {googleLoading ? "Connecting..." : "Continue with Google"}
-          </Button>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

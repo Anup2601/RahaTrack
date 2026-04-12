@@ -3,23 +3,30 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { User, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { ensureUserDocument } from "@/lib/firestore";
-import { getIsAdmin } from "@/lib/auth";
+import { ensureUserDocument, getUserById } from "@/lib/firestore";
+import { AppUser, UserRole } from "@/lib/types";
 
 interface AuthContextValue {
   user: User | null;
+  appUser: AppUser | null;
+  role: UserRole;
   loading: boolean;
-  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  canComment: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
+  appUser: null,
+  role: "viewer",
   loading: true,
-  isAdmin: false,
+  isSuperAdmin: false,
+  canComment: false,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,13 +35,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (firebaseUser?.email) {
         try {
-          await ensureUserDocument({
-            id: firebaseUser.uid,
-            email: firebaseUser.email,
-          });
+          const existingProfile = await getUserById(firebaseUser.uid);
+
+          if (!existingProfile) {
+            await ensureUserDocument({
+              id: firebaseUser.uid,
+              email: firebaseUser.email,
+              role: "viewer",
+            });
+          }
+
+          const profile = existingProfile ?? (await getUserById(firebaseUser.uid));
+          setAppUser(profile);
         } catch (error) {
           console.error("Failed to sync user document:", error);
+          setAppUser(null);
         }
+      } else {
+        setAppUser(null);
       }
 
       setLoading(false);
@@ -46,10 +64,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       user,
+      appUser,
+      role: appUser?.role ?? "viewer",
       loading,
-      isAdmin: getIsAdmin(user),
+      isSuperAdmin: appUser?.role === "superadmin",
+      canComment: appUser?.role === "superadmin" || appUser?.role === "analyst",
     }),
-    [user, loading],
+    [user, appUser, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

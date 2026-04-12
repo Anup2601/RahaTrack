@@ -26,7 +26,7 @@ export default function SectionPage() {
   const [annexures, setAnnexures] = useState<Annexure[]>([]);
   const [loading, setLoading] = useState(true);
   const [openModal, setOpenModal] = useState(false);
-  const { isAdmin } = useAuth();
+  const { isSuperAdmin } = useAuth();
 
   useEffect(() => {
     const sectionId = params.id;
@@ -61,6 +61,11 @@ export default function SectionPage() {
   }, [params.id]);
 
   const handleCreateAnnexure = async (name: string) => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can add annexures");
+      return;
+    }
+
     try {
       await createAnnexure(params.id, name);
       toast.success("Annexure added");
@@ -70,6 +75,11 @@ export default function SectionPage() {
   };
 
   const handleToggleAnnexure = async (annexure: Annexure) => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can update annexure status");
+      return;
+    }
+
     try {
       await updateAnnexureStatus(
         annexure.id,
@@ -91,7 +101,7 @@ export default function SectionPage() {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-semibold">Annexures</h3>
-          {isAdmin && (
+          {isSuperAdmin && (
             <Button onClick={() => setOpenModal(true)}>
               <Plus className="mr-2 size-4" />
               Add Annexure
@@ -119,7 +129,7 @@ export default function SectionPage() {
                   >
                     Open
                   </Link>
-                  {isAdmin && (
+                  {isSuperAdmin && (
                     <>
                       <Button size="sm" onClick={() => handleToggleAnnexure(annexure)}>
                         {annexure.status === "disabled" ? "Enable" : "Disable"}

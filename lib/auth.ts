@@ -1,36 +1,54 @@
 import {
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithPopup,
   signOut,
-  User,
+  getAuth,
 } from "firebase/auth";
-import { auth, googleProvider } from "@/lib/firebase";
+import { FirebaseError, initializeApp } from "firebase/app";
+import { auth, firebaseConfig } from "@/lib/firebase";
+import { ensureUserDocument } from "@/lib/firestore";
+import { UserRole } from "@/lib/types";
 
 export const loginWithEmailPassword = async (email: string, password: string) => {
   return signInWithEmailAndPassword(auth, email, password);
-};
-
-export const loginWithGoogle = async () => {
-  return signInWithPopup(auth, googleProvider);
 };
 
 export const logoutUser = async () => {
   return signOut(auth);
 };
 
-export const getIsAdmin = (user: User | null) => {
-  if (!user?.email) {
-    return false;
+export const createUserBySuperadmin = async (payload: {
+  email: string;
+  password: string;
+  role: UserRole;
+}) => {
+  const tempAppName = `superadmin-create-${Date.now()}`;
+  const tempApp = initializeApp(firebaseConfig, tempAppName);
+
+  try {
+    const secondaryAuth = getAuth(tempApp);
+    const credential = await createUserWithEmailAndPassword(
+      secondaryAuth,
+      payload.email,
+      payload.password,
+    );
+
+    await ensureUserDocument({
+      id: credential.user.uid,
+      email: payload.email,
+      role: payload.role,
+    });
+
+    await signOut(secondaryAuth);
+
+    return credential.user;
+  } catch (error) {
+    if (error instanceof FirebaseError) {
+      throw new Error(error.code);
+    }
+
+    throw error;
+  } finally {
+    await tempApp.delete();
   }
-
-  const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (adminEmails.length === 0) {
-    return true;
-  }
-
-  return adminEmails.includes(user.email.toLowerCase());
 };

@@ -1,10 +1,14 @@
 export type EntityStatus = "active" | "disabled" | "pending";
 export type WorkStatus = "not started" | "progress" | "delay" | "complete";
 export type AnnexureRowStatus = "pending" | "under review" | "completed";
+export type UserRole = "superadmin" | "analyst" | "viewer";
 
 export interface AppUser {
   id: string;
   email: string;
+  role: UserRole;
+  name?: string;
+  createdAt?: string;
 }
 
 export interface Section {

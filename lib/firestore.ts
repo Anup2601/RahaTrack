@@ -28,6 +28,7 @@ import {
   NestedTableDoc,
   Section,
   TableDoc,
+  UserRole,
   WorkStatus,
 } from "@/lib/types";
 
@@ -52,6 +53,12 @@ const tablesCollection = collection(db, "tables");
 const nestedTablesCollection = collection(db, "nestedTables");
 const attachmentsCollection = collection(db, "attachments");
 const contactsCollection = collection(db, "contacts");
+
+const roles: UserRole[] = ["superadmin", "analyst", "viewer"];
+
+const isRole = (value: unknown): value is UserRole => {
+  return roles.includes(value as UserRole);
+};
 
 const toIsoDate = (value: unknown): string | undefined => {
   if (!value || typeof value !== "object" || !("toDate" in value)) {
@@ -83,7 +90,67 @@ const getNestedTableByParentRow = async (parentRowId: string) => {
 
 export const ensureUserDocument = async (payload: AppUser) => {
   const ref = doc(usersCollection, payload.id);
-  await setDoc(ref, payload, { merge: true });
+  const snapshot = await getDoc(ref);
+  const existing = snapshot.exists() ? snapshot.data() : null;
+
+  await setDoc(
+    ref,
+    {
+      id: payload.id,
+      email: payload.email,
+      role: isRole(existing?.role) ? existing.role : payload.role,
+      name: payload.name ?? existing?.name ?? null,
+      createdAt: existing?.createdAt ?? serverTimestamp(),
+    },
+    { merge: true },
+  );
+};
+
+export const getUserById = async (id: string): Promise<AppUser | null> => {
+  const snapshot = await getDoc(doc(usersCollection, id));
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  const data = snapshot.data();
+
+  return {
+    id: snapshot.id,
+    email: String(data.email ?? ""),
+    role: isRole(data.role) ? data.role : "viewer",
+    name: data.name ? String(data.name) : undefined,
+    createdAt: toIsoDate(data.createdAt),
+  };
+};
+
+export const subscribeUsers = (
+  onData: (data: AppUser[]) => void,
+  onError?: (error: Error) => void,
+) => {
+  const q = query(usersCollection, orderBy("email", "asc"));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const users = snapshot.docs.map((item) => {
+        const data = item.data();
+        return {
+          id: item.id,
+          email: String(data.email ?? ""),
+          role: isRole(data.role) ? data.role : "viewer",
+          name: data.name ? String(data.name) : undefined,
+          createdAt: toIsoDate(data.createdAt),
+        } as AppUser;
+      });
+
+      onData(users);
+    },
+    (error) => {
+      console.error("subscribeUsers listener error:", error);
+      onError?.(error);
+    },
+  );
 };
 
 export const subscribeSections = (

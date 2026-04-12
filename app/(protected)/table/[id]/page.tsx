@@ -37,7 +37,7 @@ const getNow = () => {
 export default function TableLogPage() {
   const params = useParams<{ id: string }>();
   const parentRowId = params.id;
-  const { user, loading: authLoading } = useAuth();
+  const { user, canComment, loading: authLoading } = useAuth();
 
   const [rows, setRows] = useState<LogRow[]>([]);
   const [attachments, setAttachments] = useState<AttachmentDoc[]>([]);
@@ -80,6 +80,11 @@ export default function TableLogPage() {
   };
 
   const openAdd = () => {
+    if (!canComment) {
+      toast.error("Only superadmin or analyst can add comments");
+      return;
+    }
+
     setRemark("");
     setOpen(true);
   };
@@ -147,7 +152,7 @@ export default function TableLogPage() {
 
           <div className="flex items-center justify-between">
             <CardTitle>{activeTab === "comments" ? "Comments Log" : "Attachment Table"}</CardTitle>
-            {activeTab === "comments" ? (
+            {activeTab === "comments" && canComment ? (
               <Button onClick={openAdd}>
                 <Plus className="mr-2 size-4" />
                 Add Comment

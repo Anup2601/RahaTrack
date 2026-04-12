@@ -1,16 +1,29 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, Menu, Moon, Search, Settings, UserRound } from "lucide-react";
+import { LogOut, Menu, Search, ShieldUser, UserRound } from "lucide-react";
+import { toast } from "sonner";
 import { BackButton } from "@/components/common/back-button";
 import { Sidebar } from "@/components/layout/sidebar";
 import { LoadingCards } from "@/components/common/loading-cards";
 import { useAuth } from "@/components/providers/auth-provider";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { logoutUser } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, appUser, role, isSuperAdmin, loading } = useAuth();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -29,6 +42,18 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   if (!user) {
     return null;
   }
+
+  const displayName = appUser?.name?.trim() || user.displayName || user.email || "User";
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+      toast.success("Logged out successfully");
+      router.replace("/login");
+    } catch {
+      toast.error("Unable to logout. Please try again.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#ececec] md:grid md:grid-cols-[15.5rem_1fr]">
@@ -58,19 +83,38 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            {/* <button type="button" aria-label="Toggle theme" className="grid h-8 w-8 place-items-center rounded-full text-black transition hover:bg-black/10">
-              <Moon className="size-4" />
-            </button> */}
-            {/* <button type="button" aria-label="Notifications" className="relative grid h-8 w-8 place-items-center rounded-full text-black transition hover:bg-black/10">
-              <Bell className="size-4" />
-              <span className="absolute right-0.5 top-0.5 grid h-4 w-4 place-items-center rounded-full bg-red-500 text-[10px] font-bold text-white">5</span>
-            </button> */}
-            {/* <button type="button" aria-label="Settings" className="grid h-8 w-8 place-items-center rounded-full text-black transition hover:bg-black/10">
-              <Settings className="size-4" />
-            </button> */}
-            <button type="button" aria-label="Profile" className="grid h-8 w-8 place-items-center rounded-full text-black transition hover:bg-black/10">
-              <UserRound className="size-4" />
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="Profile"
+                className="grid h-8 w-8 place-items-center rounded-full text-black transition hover:bg-black/10"
+              >
+                <UserRound className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>
+                    <div className="space-y-1 py-1">
+                      <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+                      <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                      <p className="text-xs capitalize text-muted-foreground">Role: {role}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                {isSuperAdmin ? (
+                  <DropdownMenuItem>
+                    <Link href="/users" className="flex w-full items-center gap-2">
+                      <ShieldUser className="size-4" />
+                      Manage users
+                    </Link>
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem variant="destructive" onClick={handleLogout}>
+                  <LogOut className="size-4" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 

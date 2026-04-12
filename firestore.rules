@@ -5,33 +5,60 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    function getRole() {
+      return isSignedIn()
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
     }
 
-    // Admin-only app for now; all authenticated users can read/write.
+    function isSuperAdmin() {
+      return getRole() == "superadmin";
+    }
+
+    function canComment() {
+      return getRole() in ["superadmin", "analyst"];
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSuperAdmin() || (
+        isSignedIn() &&
+        request.auth.uid == userId &&
+        !exists(/databases/$(database)/documents/users/$(userId)) &&
+        request.resource.data.role == "viewer" &&
+        request.resource.data.email == request.auth.token.email
+      );
+      allow update, delete: if isSuperAdmin();
+    }
+
     match /sections/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
     match /annexures/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
     match /tables/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
     match /nestedTables/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if canComment();
     }
 
     match /attachments/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
 
     match /contacts/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
     }
   }
 }

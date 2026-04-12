@@ -24,7 +24,7 @@ export default function DashboardPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof allStatuses)[number]>("all");
   const [openModal, setOpenModal] = useState(false);
-  const { isAdmin } = useAuth();
+  const { isSuperAdmin } = useAuth();
 
   useEffect(() => {
     const unsubscribe = subscribeSections(
@@ -66,6 +66,11 @@ export default function DashboardPage() {
   }, [search, sections, statusFilter]);
 
   const handleCreateSection = async (name: string) => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can create sections");
+      return;
+    }
+
     try {
       await createSection(name);
       toast.success("Section created");
@@ -75,6 +80,11 @@ export default function DashboardPage() {
   };
 
   const handleToggleStatus = async (section: Section) => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can update section status");
+      return;
+    }
+
     try {
       await updateSectionStatus(section.id, section.status === "disabled" ? "active" : "disabled");
       toast.success("Section status updated");
@@ -90,7 +100,7 @@ export default function DashboardPage() {
       <section id="sections" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-xl font-semibold">Sections</h3>
-          {isAdmin && (
+          {isSuperAdmin && (
             <Button onClick={() => setOpenModal(true)}>
               <Plus className="mr-2 size-4" />
               Add Section
@@ -146,7 +156,7 @@ export default function DashboardPage() {
                   >
                     View
                   </Link>
-                  {isAdmin && (
+                  {isSuperAdmin && (
                     <>
                       <Button size="sm" onClick={() => handleToggleStatus(section)}>
                         {section.status === "disabled" ? "Enable" : "Disable"}
