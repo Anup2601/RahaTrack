@@ -1,0 +1,52 @@
+[debug] [2026-04-12T17:07:16.834Z] ----------------------------------------------------------------------
+[debug] [2026-04-12T17:07:16.838Z] Command:       C:\nvm4w\nodejs\node.exe C:\nvm4w\nodejs\node_modules\firebase-tools\lib\bin\firebase.js init
+[debug] [2026-04-12T17:07:16.839Z] CLI Version:   15.5.1
+[debug] [2026-04-12T17:07:16.839Z] Platform:      win32
+[debug] [2026-04-12T17:07:16.839Z] Node Version:  v22.21.1
+[debug] [2026-04-12T17:07:16.839Z] Time:          Sun Apr 12 2026 22:37:16 GMT+0530 (India Standard Time)
+[debug] [2026-04-12T17:07:16.839Z] ----------------------------------------------------------------------
+[debug] 
+[info] 
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  C:\Users\anupk\Desktop\pli
+
+[info] 
+=== Project Setup
+[info] 
+[info] First, let's associate this project directory with a Firebase project.
+[info] You can create multiple project aliases by running firebase use --add, 
+[info] 
+[debug] [2026-04-12T17:07:27.627Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-04-12T17:07:27.628Z] > authorizing via signed-in user (cgauravjaitlya@gmail.com)
+[debug] [2026-04-12T17:07:27.630Z] Checked if tokens are valid: true, expires at: 1776016448230
+[debug] [2026-04-12T17:07:27.631Z] Checked if tokens are valid: true, expires at: 1776016448230
+[debug] [2026-04-12T17:07:27.632Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/pli-tracker-b0c69 [none]
+[debug] [2026-04-12T17:07:28.084Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/pli-tracker-b0c69 200
+[debug] [2026-04-12T17:07:28.084Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/pli-tracker-b0c69 {"projectId":"pli-tracker-b0c69","projectNumber":"670551510727","displayName":"pli-tracker","name":"projects/pli-tracker-b0c69","resources":{"hostingSite":"pli-tracker-b0c69"},"state":"ACTIVE","etag":"1_edec36a4-c826-41d7-b18b-e7c10ad21e71"}
+[info] i  Using project pli-tracker-b0c69 (pli-tracker) . 
+[info] 
+=== App Hosting Setup
+[debug] [2026-04-12T17:07:28.093Z] Checked if tokens are valid: true, expires at: 1776016448230
+[debug] [2026-04-12T17:07:28.093Z] Checked if tokens are valid: true, expires at: 1776016448230
+[debug] [2026-04-12T17:07:28.093Z] >>> [apiv2][query] GET https://cloudbilling.googleapis.com/v1/projects/pli-tracker-b0c69/billingInfo [none]
+[debug] [2026-04-12T17:07:29.502Z] <<< [apiv2][status] GET https://cloudbilling.googleapis.com/v1/projects/pli-tracker-b0c69/billingInfo 200
+[debug] [2026-04-12T17:07:29.502Z] <<< [apiv2][body] GET https://cloudbilling.googleapis.com/v1/projects/pli-tracker-b0c69/billingInfo {"name":"projects/pli-tracker-b0c69/billingInfo","projectId":"pli-tracker-b0c69","billingAccountName":"billingAccounts/01FDAA-303A2E-59DDC6","billingEnabled":true}
+[debug] [2026-04-12T17:07:29.503Z] Checked if tokens are valid: true, expires at: 1776016448230
+[debug] [2026-04-12T17:07:29.503Z] Checked if tokens are valid: true, expires at: 1776016448230
+[debug] [2026-04-12T17:07:29.503Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/pli-tracker-b0c69/services/firebaseapphosting.googleapis.com [none]
+[debug] [2026-04-12T17:07:29.503Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/pli-tracker-b0c69/services/firebaseapphosting.googleapis.com  x-goog-user-project=pli-tracker-b0c69
+[debug] [2026-04-12T17:07:31.256Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/pli-tracker-b0c69/services/firebaseapphosting.googleapis.com 200
+[debug] [2026-04-12T17:07:31.256Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/pli-tracker-b0c69/services/firebaseapphosting.googleapis.com [omitted]
+[debug] [2026-04-12T17:07:31.257Z] Checked if tokens are valid: true, expires at: 1776016448230
+[debug] [2026-04-12T17:07:31.257Z] Checked if tokens are valid: true, expires at: 1776016448230
+[debug] [2026-04-12T17:07:31.257Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/pli-tracker-b0c69/services/firebaseapphosting.googleapis.com:enable [none]
+[debug] [2026-04-12T17:07:31.257Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/pli-tracker-b0c69/services/firebaseapphosting.googleapis.com:enable  x-goog-user-project=pli-tracker-b0c69
+[debug] [2026-04-12T17:07:31.973Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/pli-tracker-b0c69/services/firebaseapphosting.googleapis.com:enable 200
+[debug] [2026-04-12T17:07:31.973Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/pli-tracker-b0c69/services/firebaseapphosting.googleapis.com:enable [omitted]
