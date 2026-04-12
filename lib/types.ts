@@ -1,5 +1,6 @@
 export type EntityStatus = "active" | "disabled" | "pending";
 export type WorkStatus = "not started" | "progress" | "delay" | "complete";
+export type AnnexureRowStatus = "pending" | "under review" | "completed";
 
 export interface AppUser {
   id: string;
@@ -18,6 +19,7 @@ export interface Annexure {
   sectionId: string;
   name: string;
   status: EntityStatus;
+  createdAt?: string;
 }
 
 export interface DynamicRow {
@@ -66,7 +68,7 @@ export interface AnnexureTableRow {
   requirements: string;
   attachment: string;
   concernedTeamMembers: string;
-  currentStatus: WorkStatus;
+  currentStatus: AnnexureRowStatus;
   latestRemark: string;
   status?: EntityStatus;
 }

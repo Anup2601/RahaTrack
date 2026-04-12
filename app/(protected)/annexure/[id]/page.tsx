@@ -33,18 +33,17 @@ import {
   updateContactStatus,
 } from "@/lib/firestore";
 import {
+  AnnexureRowStatus,
   Annexure,
   AnnexureTableRow,
   AttachmentDoc,
   ContactDoc,
-  WorkStatus,
 } from "@/lib/types";
 
-const statusTone: Record<WorkStatus, string> = {
-  "not started": "border-slate-300 bg-slate-100 text-slate-900",
-  progress: "border-sky-300 bg-sky-100 text-sky-900",
-  delay: "border-amber-300 bg-amber-100 text-amber-900",
-  complete: "border-emerald-300 bg-emerald-100 text-emerald-900",
+const statusTone: Record<AnnexureRowStatus, string> = {
+  pending: "border-amber-300 bg-amber-100 text-amber-900",
+  "under review": "border-sky-300 bg-sky-100 text-sky-900",
+  completed: "border-emerald-300 bg-emerald-100 text-emerald-900",
 };
 
 const chipClass =
@@ -111,6 +110,8 @@ export default function AnnexurePage() {
   const [rowModalOpen, setRowModalOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<AnnexureTableRow | null>(null);
   const [requirements, setRequirements] = useState("");
+  const [rowCurrentStatus, setRowCurrentStatus] = useState<AnnexureRowStatus>("pending");
+  const [rowLatestRemark, setRowLatestRemark] = useState("");
   const [rowAttachments, setRowAttachments] = useState<string[]>([]);
   const [rowAttachmentFiles, setRowAttachmentFiles] = useState<File[]>([]);
   const [concernedTeamMembers, setConcernedTeamMembers] = useState<string[]>([""]);
@@ -329,8 +330,8 @@ export default function AnnexurePage() {
       requirements: requirements.trim(),
       attachment: cleanedAttachments.join(", "),
       concernedTeamMembers: cleanedMembers.join(", "),
-      currentStatus: editingRow?.currentStatus ?? "not started",
-      latestRemark: editingRow?.latestRemark ?? "",
+      currentStatus: rowCurrentStatus,
+      latestRemark: rowLatestRemark.trim(),
       status: editingRow?.status ?? "active",
     };
 
@@ -356,12 +357,16 @@ export default function AnnexurePage() {
     if (row) {
       setEditingRow(row);
       setRequirements(row.requirements);
+      setRowCurrentStatus(row.currentStatus);
+      setRowLatestRemark(row.latestRemark);
       setRowAttachments(createList(row.attachment));
       setRowAttachmentFiles([]);
       setConcernedTeamMembers(createList(row.concernedTeamMembers));
     } else {
       setEditingRow(null);
       setRequirements("");
+      setRowCurrentStatus("pending");
+      setRowLatestRemark("");
       setRowAttachments([]);
       setRowAttachmentFiles([]);
       setConcernedTeamMembers([""]);
@@ -393,18 +398,11 @@ export default function AnnexurePage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={annexure.status} />
-          <Button onClick={() => setAttachmentListOpen(true)}>
-            <FileSpreadsheet className="mr-2 size-4" />
-            Attachments
-          </Button>
-          <Button variant="outline" onClick={() => setContactListOpen(true)}>
-            <Users className="mr-2 size-4" />
-            Team Members
-          </Button>
+
         </div>
       </section>
 
-      <Card className="overflow-hidden rounded-2xl border border-amber-300 bg-white shadow-sm">
+      <Card className="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Annexure Table</CardTitle>
           <Button onClick={() => openRowEditor()}>
@@ -415,15 +413,15 @@ export default function AnnexurePage() {
         <CardContent>
           <div className="overflow-x-auto">
             <Table className="min-w-280 table-fixed">
-              <TableHeader className="bg-amber-500">
-                <TableRow className="border-amber-600 hover:bg-amber-500">
-                  <TableHead className="w-16 text-amber-950">S No.</TableHead>
-                  <TableHead className="w-72 text-amber-950">Requirements</TableHead>
-                  <TableHead className="w-44 text-amber-950">Current Status</TableHead>
-                  <TableHead className="w-64 text-amber-950">Attachment</TableHead>
-                  <TableHead className="w-72 text-amber-950">Concerned Team Member(s)</TableHead>
-                  <TableHead className="w-72 text-amber-950">Latest Remark</TableHead>
-                  <TableHead className="w-28 text-right text-amber-950">Actions</TableHead>
+              <TableHeader className="bg-slate-200">
+                <TableRow className="border-slate-300 hover:bg-slate-200">
+                  <TableHead className="w-16 text-center text-slate-900">S No.</TableHead>
+                  <TableHead className="w-[30rem] text-center text-slate-900">Requirements</TableHead>
+                  <TableHead className="w-44 text-center text-slate-900">Current Status</TableHead>
+                  <TableHead className="w-64 text-center text-slate-900">Attachment</TableHead>
+                  <TableHead className="w-72 text-center text-slate-900">Concerned Team Member(s)</TableHead>
+                  <TableHead className="w-[44rem] text-center text-slate-900">Latest Remark</TableHead>
+                  <TableHead className="w-28 text-center text-slate-900">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -437,24 +435,24 @@ export default function AnnexurePage() {
                   rows.map((row, index) => (
                     <TableRow
                       key={row.id}
-                      className="cursor-pointer border-amber-100 odd:bg-amber-50/60 even:bg-yellow-50/40 hover:bg-amber-100/70"
+                      className="cursor-pointer border-slate-200 odd:bg-slate-50/80 even:bg-white hover:bg-slate-100"
                       onClick={() => openLogTable(row)}
                     >
-                      <TableCell className="align-top font-medium">{index + 1}</TableCell>
-                      <TableCell className="align-top">
-                        <p className="max-w-72 whitespace-normal wrap-break-word leading-6" title={row.requirements}>
+                      <TableCell className="text-center align-middle font-medium">{index + 1}</TableCell>
+                      <TableCell className="text-center align-middle">
+                        <p className="mx-auto max-w-[30rem] whitespace-normal wrap-break-word leading-6" title={row.requirements}>
                           {row.requirements}
                         </p>
                       </TableCell>
-                      <TableCell className="align-top">
-                        <span className={`${chipClass} ${statusTone[row.currentStatus]}`}>
+                      <TableCell className="text-center align-middle">
+                        <span className={`${chipClass} ${statusTone[row.currentStatus]} justify-center`}>
                           {row.currentStatus}
                         </span>
                       </TableCell>
-                      <TableCell className="align-top">
-                        <div className="flex flex-wrap gap-2">
+                      <TableCell className="text-center align-middle">
+                        <div className="flex flex-wrap justify-center gap-2">
                           {parseMultiValue(row.attachment).length === 0 ? (
-                            <span className="text-xs text-muted-foreground">No attachment</span>
+                            <span className="text-xs text-muted-foreground">-</span>
                           ) : (
                             parseMultiValue(row.attachment).map((item) => (
                               <span
@@ -468,8 +466,8 @@ export default function AnnexurePage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="align-top">
-                        <div className="flex flex-wrap gap-2">
+                      <TableCell className="text-center align-middle">
+                        <div className="flex flex-wrap justify-center gap-2">
                           {parseMultiValue(row.concernedTeamMembers).length === 0 ? (
                             <span className="text-xs text-muted-foreground">-</span>
                           ) : (
@@ -485,12 +483,12 @@ export default function AnnexurePage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="align-top">
-                        <p className="max-w-72 whitespace-normal wrap-break-word leading-6" title={row.latestRemark || "-"}>
+                      <TableCell className="text-center align-middle">
+                        <p className="mx-auto max-w-[44rem] whitespace-normal wrap-break-word leading-6" title={row.latestRemark || "-"}>
                           {row.latestRemark || "-"}
                         </p>
                       </TableCell>
-                      <TableCell className="align-top text-right">
+                      <TableCell className="text-center align-middle">
                         <Button
                           size="sm"
                           variant="outline"
@@ -773,6 +771,21 @@ export default function AnnexurePage() {
               placeholder="Requirements"
               value={requirements}
               onChange={(e) => setRequirements(e.target.value)}
+            />
+            <select
+              className="h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm"
+              value={rowCurrentStatus}
+              onChange={(e) => setRowCurrentStatus(e.target.value as AnnexureRowStatus)}
+            >
+              <option value="pending">pending</option>
+              <option value="under review">under review</option>
+              <option value="completed">completed</option>
+            </select>
+            <textarea
+              className="min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="Latest Remark"
+              value={rowLatestRemark}
+              onChange={(e) => setRowLatestRemark(e.target.value)}
             />
             <div className="space-y-2 rounded-xl border bg-muted/20 p-3">
               <div className="flex items-center justify-between gap-2">

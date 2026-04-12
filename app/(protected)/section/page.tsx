@@ -52,11 +52,17 @@ export default function DashboardPage() {
   }, []);
 
   const filteredSections = useMemo(() => {
-    return sections.filter((section) => {
-      const matchesName = section.name.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = statusFilter === "all" || section.status === statusFilter;
-      return matchesName && matchesStatus;
-    });
+    return sections
+      .filter((section) => {
+        const matchesName = section.name.toLowerCase().includes(search.toLowerCase());
+        const matchesStatus = statusFilter === "all" || section.status === statusFilter;
+        return matchesName && matchesStatus;
+      })
+      .sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return aTime - bTime;
+      });
   }, [search, sections, statusFilter]);
 
   const handleCreateSection = async (name: string) => {
@@ -79,10 +85,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border bg-white/85 p-5 shadow-sm backdrop-blur">
-        <h2 className="text-2xl font-semibold">Dashboard</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Track and maintain all PLI sections from one place.</p>
-      </section>
+      
 
       <section id="sections" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

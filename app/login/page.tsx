@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BackButton } from "@/components/common/back-button";
 import { loginWithEmailPassword, loginWithGoogle } from "@/lib/auth";
 import { useAuth } from "@/components/providers/auth-provider";
 
@@ -68,7 +69,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-transparent p-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-transparent p-4">
+      <BackButton
+        fallbackRoute="/"
+        className="absolute left-4 top-4 rounded-xl"
+      />
       <Card className="w-full max-w-md rounded-2xl border-white/50 bg-white/90 shadow-xl shadow-sky-100 backdrop-blur">
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-3xl">Welcome Back</CardTitle>

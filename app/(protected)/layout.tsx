@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Menu, Moon, Search, Settings, UserRound } from "lucide-react";
+import { BackButton } from "@/components/common/back-button";
 import { Sidebar } from "@/components/layout/sidebar";
 import { LoadingCards } from "@/components/common/loading-cards";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -43,6 +44,11 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             <Menu className="size-4" />
           </button>
 
+          <BackButton
+            fallbackRoute="/dashboard"
+            className="h-9 rounded-xl border-black/20 bg-white/90 text-black hover:bg-white"
+          />
+
           <div className="relative w-full max-w-md">
             <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-black/65" />
             <input
@@ -52,16 +58,16 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            <button type="button" aria-label="Toggle theme" className="grid h-8 w-8 place-items-center rounded-full text-black transition hover:bg-black/10">
+            {/* <button type="button" aria-label="Toggle theme" className="grid h-8 w-8 place-items-center rounded-full text-black transition hover:bg-black/10">
               <Moon className="size-4" />
-            </button>
-            <button type="button" aria-label="Notifications" className="relative grid h-8 w-8 place-items-center rounded-full text-black transition hover:bg-black/10">
+            </button> */}
+            {/* <button type="button" aria-label="Notifications" className="relative grid h-8 w-8 place-items-center rounded-full text-black transition hover:bg-black/10">
               <Bell className="size-4" />
               <span className="absolute right-0.5 top-0.5 grid h-4 w-4 place-items-center rounded-full bg-red-500 text-[10px] font-bold text-white">5</span>
-            </button>
-            <button type="button" aria-label="Settings" className="grid h-8 w-8 place-items-center rounded-full text-black transition hover:bg-black/10">
+            </button> */}
+            {/* <button type="button" aria-label="Settings" className="grid h-8 w-8 place-items-center rounded-full text-black transition hover:bg-black/10">
               <Settings className="size-4" />
-            </button>
+            </button> */}
             <button type="button" aria-label="Profile" className="grid h-8 w-8 place-items-center rounded-full text-black transition hover:bg-black/10">
               <UserRound className="size-4" />
             </button>

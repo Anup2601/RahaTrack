@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
+  AnnexureRowStatus,
   Annexure,
   AnnexureTableRow,
   AppUser,
@@ -29,6 +30,20 @@ import {
   TableDoc,
   WorkStatus,
 } from "@/lib/types";
+
+const toAnnexureRowStatus = (value: unknown): AnnexureRowStatus => {
+  const normalized = String(value ?? "").trim().toLowerCase();
+
+  if (normalized === "completed" || normalized === "complete") {
+    return "completed";
+  }
+
+  if (normalized === "under review" || normalized === "progress") {
+    return "under review";
+  }
+
+  return "pending";
+};
 
 const usersCollection = collection(db, "users");
 const sectionsCollection = collection(db, "sections");
@@ -75,7 +90,7 @@ export const subscribeSections = (
   onData: (data: Section[]) => void,
   onError?: (error: Error) => void,
 ) => {
-  const q = query(sectionsCollection, orderBy("createdAt", "desc"));
+  const q = query(sectionsCollection, orderBy("createdAt", "asc"));
   return onSnapshot(
     q,
     (snapshot) => {
@@ -143,9 +158,19 @@ export const subscribeAnnexuresBySection = (
             sectionId: data.sectionId,
             name: data.name,
             status: data.status,
+            createdAt: toIsoDate(data.createdAt),
           } as Annexure;
         })
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+          if (aTime === bTime) {
+            return a.name.localeCompare(b.name);
+          }
+
+          return aTime - bTime;
+        });
 
       onData(annexures);
     },
@@ -161,6 +186,7 @@ export const createAnnexure = async (sectionId: string, name: string) => {
     sectionId,
     name,
     status: "active" as EntityStatus,
+    createdAt: serverTimestamp(),
   });
 };
 
@@ -180,6 +206,7 @@ export const getAnnexureById = async (id: string) => {
     sectionId: data.sectionId,
     name: data.name,
     status: data.status,
+    createdAt: toIsoDate(data.createdAt),
   } as Annexure;
 };
 
@@ -388,24 +415,17 @@ export const updateContactStatus = async (id: string, status: EntityStatus) => {
 
 export const getAnnexureStatusRows = async (annexureId: string): Promise<AnnexureTableRow[]> => {
   const table = await getOrCreateTableByAnnexure(annexureId);
-  const rowsWithLogs = await Promise.all(
-    table.rows.map(async (row) => {
-      const logRows = await getLogRowsByParentRow(row.id);
-      const latestLog = logRows[logRows.length - 1];
-
-      return {
-        id: row.id,
-        requirements: String(row.requirements ?? row.team ?? ""),
-        attachment: String(row.attachment ?? ""),
-        concernedTeamMembers: String(row.concernedTeamMembers ?? ""),
-        currentStatus: (latestLog?.status as WorkStatus) ?? (row.currentStatus as WorkStatus) ?? "not started",
-        latestRemark: String(latestLog?.remark ?? row.latestRemark ?? ""),
-        status: (row.status as EntityStatus) || "active",
-      } as AnnexureTableRow;
-    }),
-  );
-
-  return rowsWithLogs;
+  return table.rows.map((row) => {
+    return {
+      id: row.id,
+      requirements: String(row.requirements ?? row.team ?? ""),
+      attachment: String(row.attachment ?? ""),
+      concernedTeamMembers: String(row.concernedTeamMembers ?? ""),
+      currentStatus: toAnnexureRowStatus(row.currentStatus),
+      latestRemark: String(row.latestRemark ?? ""),
+      status: (row.status as EntityStatus) || "active",
+    } as AnnexureTableRow;
+  });
 };
 
 export const saveAnnexureStatusRows = async (
