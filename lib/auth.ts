@@ -4,7 +4,7 @@ import {
   signOut,
   getAuth,
 } from "firebase/auth";
-import { FirebaseError, initializeApp } from "firebase/app";
+import { deleteApp, FirebaseError, initializeApp } from "firebase/app";
 import { auth, firebaseConfig } from "@/lib/firebase";
 import { ensureUserDocument } from "@/lib/firestore";
 import { UserRole } from "@/lib/types";
@@ -49,6 +49,6 @@ export const createUserBySuperadmin = async (payload: {
 
     throw error;
   } finally {
-    await tempApp.delete();
+    await deleteApp(tempApp);
   }
 };
