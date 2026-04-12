@@ -23,6 +23,11 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "PLI Tracker",
   description: "Production-ready tracker for sections, annexures, and nested PLI tables",
+  icons: {
+    icon: "/rahalogo.png",
+    shortcut: "/rahalogo.png",
+    apple: "/rahalogo.png",
+  },
 };
 
 export default function RootLayout({
