@@ -254,13 +254,15 @@ export default function TableLogPage() {
             <DialogTitle>Add Comment</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="rounded-xl border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-              S No., date, time and username are filled automatically when you save.
-            </div>
             <div className="rounded-lg border px-3 py-2 text-sm">
               <span className="font-medium">Username:</span> {username}
             </div>
-            <Input placeholder="Remark" value={remark} onChange={(e) => setRemark(e.target.value)} />
+           <textarea
+  placeholder="Remark"
+  value={remark}
+  onChange={(e) => setRemark(e.target.value)}
+  className="w-full h-28 resize-none rounded-lg border border-gray-300 p-3 text-sm outline-none focus:ring-2 focus:ring-black"
+/>
             <Button className="w-full" onClick={saveLog}>
               Save
             </Button>

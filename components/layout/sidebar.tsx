@@ -38,15 +38,15 @@ export function Sidebar() {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:w-64 md:flex-col bg-[#8a8a8a] px-4 shadow-[6px_0_20px_rgba(0,0,0,0.12)]">
         
-        <div className="">
+        <div className="space-y-7">
           
           {/* ✅ BIG LOGO ONLY */}
-          <div className="flex justify-center items-center">
+          <div className="flex justify-center items-center py-4">
             <Image
               src="/rahalogo.png"
               alt="Logo"
-              width={120}
-              height={120}
+              width={160}
+              height={160}
               className="object-contain"
               priority
             />

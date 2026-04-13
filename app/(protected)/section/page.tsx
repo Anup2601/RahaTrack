@@ -16,7 +16,7 @@ import { Section } from "@/lib/types";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-const allStatuses = ["all", "active", "disabled", "pending"] as const;
+const allStatuses = ["all", "active", "disabled"] as const;
 
 export default function DashboardPage() {
   const [sections, setSections] = useState<Section[]>([]);
@@ -146,9 +146,6 @@ export default function DashboardPage() {
                   </div>
                   <StatusBadge status={section.status} />
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">Created for PLI tracking workflows and annexure grouping.</p>
-                </CardContent>
                 <CardFooter className="flex flex-wrap gap-2">
                   <Link
                     href={`/section/${section.id}`}

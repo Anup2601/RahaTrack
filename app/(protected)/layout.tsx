@@ -74,13 +74,13 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
             className="h-9 rounded-xl border-black/20 bg-white/90 text-black hover:bg-white"
           />
 
-          <div className="relative w-full max-w-md">
+          {/* <div className="relative w-full max-w-md">
             <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-black/65" />
             <input
               className="h-10 w-full rounded-xl border border-black/20 bg-white px-4 pr-10 text-sm text-black placeholder:text-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/40"
               placeholder="Search & Navigate"
             />
-          </div>
+          </div> */}
 
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
             <DropdownMenu>

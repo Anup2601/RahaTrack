@@ -473,7 +473,7 @@ export default function AnnexurePage() {
                       onClick={() => openLogTable(row)}
                     >
                       <TableCell className="text-center align-middle font-medium">{index + 1}</TableCell>
-                      <TableCell className="text-center align-middle">
+                      <TableCell className="text-left align-middle">
                         <p className="mx-auto max-w-120 whitespace-normal wrap-break-word leading-6" title={row.requirements}>
                           {row.requirements}
                         </p>
