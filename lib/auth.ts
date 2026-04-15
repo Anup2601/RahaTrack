@@ -1,5 +1,8 @@
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
+  updateEmail,
+  updatePassword,
   signInWithEmailAndPassword,
   signOut,
   getAuth,
@@ -42,6 +45,68 @@ export const createUserBySuperadmin = async (payload: {
     await signOut(secondaryAuth);
 
     return credential.user;
+  } catch (error) {
+    if (error instanceof FirebaseError) {
+      throw new Error(error.code);
+    }
+
+    throw error;
+  } finally {
+    await deleteApp(tempApp);
+  }
+};
+
+export const updateUserCredentialsBySuperadmin = async (payload: {
+  currentEmail: string;
+  currentPassword: string;
+  newEmail?: string;
+  newPassword?: string;
+}) => {
+  const tempAppName = `superadmin-update-${Date.now()}`;
+  const tempApp = initializeApp(firebaseConfig, tempAppName);
+
+  try {
+    const secondaryAuth = getAuth(tempApp);
+    const credential = await signInWithEmailAndPassword(
+      secondaryAuth,
+      payload.currentEmail,
+      payload.currentPassword,
+    );
+
+    if (payload.newEmail && payload.newEmail !== payload.currentEmail) {
+      await updateEmail(credential.user, payload.newEmail);
+    }
+
+    if (payload.newPassword) {
+      await updatePassword(credential.user, payload.newPassword);
+    }
+
+    await signOut(secondaryAuth);
+  } catch (error) {
+    if (error instanceof FirebaseError) {
+      throw new Error(error.code);
+    }
+
+    throw error;
+  } finally {
+    await deleteApp(tempApp);
+  }
+};
+
+export const deleteUserBySuperadmin = async (payload: { email: string; password: string }) => {
+  const tempAppName = `superadmin-delete-${Date.now()}`;
+  const tempApp = initializeApp(firebaseConfig, tempAppName);
+
+  try {
+    const secondaryAuth = getAuth(tempApp);
+    const credential = await signInWithEmailAndPassword(
+      secondaryAuth,
+      payload.email,
+      payload.password,
+    );
+
+    await deleteUser(credential.user);
+    await signOut(secondaryAuth);
   } catch (error) {
     if (error instanceof FirebaseError) {
       throw new Error(error.code);

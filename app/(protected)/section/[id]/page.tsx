@@ -10,7 +10,7 @@ import { LoadingCards } from "@/components/common/loading-cards";
 import { StatusBadge } from "@/components/common/status-badge";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   createAnnexure,
   deleteAnnexure,
@@ -69,7 +69,7 @@ export default function SectionPage() {
     return () => unsubscribe();
   }, [params.id]);
 
-  const handleCreateAnnexure = async (name: string) => {
+  const handleCreateAnnexure = async (name: string, description: string) => {
     if (!isSuperAdmin) {
       toast.error("Only superadmin can add annexures");
       return;
@@ -77,10 +77,10 @@ export default function SectionPage() {
 
     try {
       if (editingAnnexure) {
-        await updateAnnexure(editingAnnexure.id, name.trim());
+        await updateAnnexure(editingAnnexure.id, name.trim(), description.trim());
         toast.success("Annexure updated");
       } else {
-        await createAnnexure(params.id, name.trim());
+        await createAnnexure(params.id, name.trim(), description.trim());
         toast.success("Annexure added");
       }
 
@@ -129,7 +129,9 @@ export default function SectionPage() {
     <div className="space-y-6">
       <section className="rounded-2xl border bg-white/85 p-5 shadow-sm backdrop-blur">
         <h2 className="text-2xl font-semibold">{section?.name ?? "Section"}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Manage annexures mapped to this section.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {section?.description ?? "Manage annexures mapped to this section."}
+        </p>
       </section>
 
       <section className="space-y-4">
@@ -155,12 +157,17 @@ export default function SectionPage() {
             {annexures.map((annexure) => (
               <Card key={annexure.id} className="rounded-2xl border bg-white/90 shadow-sm">
                 <CardHeader className="flex flex-row items-start justify-between space-y-0">
-                  <CardTitle className="text-lg">{annexure.name}</CardTitle>
+                  <div>
+                    <CardTitle className="text-lg">{annexure.name}</CardTitle>
+                    <CardDescription className="mt-2 line-clamp-2">
+                      {annexure.description ?? "No description provided."}
+                    </CardDescription>
+                  </div>
                   <StatusBadge status={annexure.status} />
                 </CardHeader>
-                <CardContent>
+                {/* <CardContent>
                   <p className="text-sm text-muted-foreground">Linked to section {section?.name ?? "-"}.</p>
-                </CardContent>
+                </CardContent> */}
                 <CardFooter className="flex flex-wrap gap-2">
                   <Link
                     href={`/annexure/${annexure.id}`}
@@ -215,7 +222,10 @@ export default function SectionPage() {
         title={editingAnnexure ? "Edit Annexure" : "Add Annexure"}
         label="Annexure Name"
         placeholder="For example: Annexure 1"
+        descriptionLabel="Annexure Description"
+        descriptionPlaceholder="Add a short description for this annexure"
         initialValue={editingAnnexure?.name}
+        initialDescription={editingAnnexure?.description}
         submitLabel={editingAnnexure ? "Update" : "Save"}
         onSubmit={handleCreateAnnexure}
       />

@@ -555,6 +555,7 @@ export default function AnnexurePage() {
       if (!editingRow) {
         try {
           const now = getNow();
+          const initialRemark = rowLatestRemark.trim();
           await appendLogRowByParentRow(updatedRow.id, {
             id: crypto.randomUUID(),
             sNo: "1",
@@ -562,7 +563,7 @@ export default function AnnexurePage() {
             time: now.time,
             username: user?.displayName || user?.email || "Unknown user",
             status: "not started",
-            remark: `Created annexure row: ${requirements.trim()}`,
+            remark: initialRemark || "-",
           });
         } catch {
           toast.error("Row saved, but the comment log could not be created");
@@ -626,7 +627,7 @@ export default function AnnexurePage() {
         <div>
           <h2 className="text-2xl font-semibold">{annexure.name}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Annexure tracking table with requirement, attachment and comment log access.
+            {annexure.description ?? "Annexure tracking table with requirement, attachment and comment log access."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -647,11 +648,11 @@ export default function AnnexurePage() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table className="min-w-280 table-fixed">
-              <TableHeader className="bg-gray-400">
-                <TableRow className="border-slate-300 hover:bg-gray-300">
-                  <TableHead className="w-16 text-center text-slate-900">S No.</TableHead>
-                  <TableHead className="w-120 text-center text-slate-900">
+            <Table className="min-w-280 table-fixed rounded-full border-2">
+              <TableHeader className="bg-[#8a8a8a]">
+                <TableRow className="border-slate-300 hover:bg-[#8a8a8a]/20">
+                  <TableHead className="w-16 text-center text-white">S No.</TableHead>
+                  <TableHead className="w-140 text-center text-white">
                     <div className="flex items-center justify-between gap-2">
                       <span>Requirements</span>
                       <TableColumnFilter
@@ -664,7 +665,7 @@ export default function AnnexurePage() {
                       />
                     </div>
                   </TableHead>
-                  <TableHead className="w-44 text-center text-slate-900">
+                  <TableHead className="w-44 text-center text-white">
                     <div className="flex items-center justify-between gap-2">
                       <span>Current Status</span>
                       <TableColumnFilter
@@ -677,7 +678,7 @@ export default function AnnexurePage() {
                       />
                     </div>
                   </TableHead>
-                  <TableHead className="w-64 text-center text-slate-900">
+                  <TableHead className="w-64 text-center text-white">
                     <div className="flex items-center justify-between gap-2">
                       <span>Attachment</span>
                       <TableColumnFilter
@@ -690,7 +691,7 @@ export default function AnnexurePage() {
                       />
                     </div>
                   </TableHead>
-                  <TableHead className="w-72 text-center text-slate-900">
+                  <TableHead className="w-72 text-center text-white">
                     <div className="flex items-center justify-between gap-2">
                       <span>Concerned Team Member(s)</span>
                       <TableColumnFilter
@@ -703,7 +704,7 @@ export default function AnnexurePage() {
                       />
                     </div>
                   </TableHead>
-                  <TableHead className="w-176 text-center text-slate-900">
+                  <TableHead className="w-120 text-center text-white">
                     <div className="flex items-center justify-between gap-2">
                       <span>Latest Remark</span>
                       <TableColumnFilter
@@ -716,7 +717,7 @@ export default function AnnexurePage() {
                       />
                     </div>
                   </TableHead>
-                  <TableHead className="w-28 text-center text-slate-900">Actions</TableHead>
+                  <TableHead className="w-28 text-center text-white">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -730,12 +731,12 @@ export default function AnnexurePage() {
                   filteredRows.map((row, index) => (
                     <TableRow
                       key={row.id}
-                      className="cursor-pointer border-slate-200 odd:bg-slate-50/80 even:bg-white hover:bg-yellow-100/80"
+                      className="cursor-pointer border-slate-200 odd:bg-slate-50/80 even:bg-white hover:bg-yellow-300"
                       onClick={() => openLogTable(row)}
                     >
                       <TableCell className="text-center align-middle font-medium">{index + 1}</TableCell>
                       <TableCell className="text-left align-middle">
-                        <p className="mx-auto max-w-120 whitespace-normal wrap-break-word leading-6" title={row.requirements}>
+                        <p className="mx-auto max-w-140 whitespace-normal wrap-break-word leading-6" title={row.requirements}>
                           {row.requirements}
                         </p>
                       </TableCell>
@@ -778,7 +779,7 @@ export default function AnnexurePage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-center align-middle">
+                      <TableCell className="text-left align-middle">
                         <p className="mx-auto max-w-176 whitespace-normal wrap-break-word leading-6" title={row.latestRemark || "-"}>
                           {row.latestRemark || "-"}
                         </p>
@@ -853,7 +854,7 @@ export default function AnnexurePage() {
                       />
                     </div>
                   </TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1000,7 +1001,7 @@ export default function AnnexurePage() {
                       />
                     </div>
                   </TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

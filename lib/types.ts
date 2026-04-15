@@ -7,6 +7,7 @@ export interface AppUser {
   id: string;
   email: string;
   role: UserRole;
+  status?: EntityStatus;
   name?: string;
   createdAt?: string;
 }
@@ -14,6 +15,7 @@ export interface AppUser {
 export interface Section {
   id: string;
   name: string;
+  description?: string;
   status: EntityStatus;
   createdAt?: string;
 }
@@ -22,6 +24,7 @@ export interface Annexure {
   id: string;
   sectionId: string;
   name: string;
+  description?: string;
   status: EntityStatus;
   createdAt?: string;
 }

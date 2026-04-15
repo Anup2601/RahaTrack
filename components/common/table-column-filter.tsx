@@ -78,13 +78,13 @@ export function TableColumnFilter({
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="overflow-hidden p-0 sm:max-w-xl" showCloseButton={false}>
-          <div className="flex items-center justify-between bg-black px-5 py-4 text-white">
+          <div className="flex items-center justify-between bg-[#8a8a8a] px-5 py-4 text-white">
             <h3 className="text-2xl font-semibold">Filter: {title}</h3>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded p-1 transition hover:bg-white/15"
-              aria-label="Close"
+              className="grid h-9 w-9 place-items-center rounded-full border-white/20 bg-white/90 text-black hover:bg-white"
+              aria-label="Close filter dialog"
             >
               <X className="size-5" />
             </button>
@@ -104,15 +104,15 @@ export function TableColumnFilter({
               <Button
                 type="button"
                 variant="outline"
-                className="h-11 bg-muted"
+                className="h-11 "
                 onClick={() => setDraftValues(options.map((option) => option.value))}
               >
                 Select All
               </Button>
               <Button
                 type="button"
-                variant="outline"
-                className="h-11 bg-muted"
+                variant="default"
+                className="h-11 bg-primary"
                 onClick={() => setDraftValues([])}
               >
                 Clear All
@@ -132,18 +132,18 @@ export function TableColumnFilter({
                     <label
                       key={option.value}
                       className={`flex cursor-pointer items-center justify-between rounded-xl px-3 py-3 transition ${
-                        checked ? "bg-slate-200" : "hover:bg-muted/40"
+                        checked ? "bg-muted text-primary-foreground" : "hover:bg-muted/40"
                       }`}
                     >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleValue(option.value)}
-                          className="size-5 rounded border"
-                        />
-                        <span className="truncate text-lg">{option.value}</span>
-                      </div>
+                     <div className="flex max-w-[90%] items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleValue(option.value)}
+                        className="h-5 w-5 shrink-0 rounded border border-input text-primary focus:ring-primary"
+                      />
+                      <span className="truncate text-lg">{option.value}</span>
+                    </div>
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
                         {option.count}
                       </span>
@@ -158,7 +158,7 @@ export function TableColumnFilter({
             <Button type="button" variant="outline" className="h-12" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" className="h-12 bg-black text-white hover:bg-black/90" onClick={handleApply}>
+            <Button type="button" variant="default" className="h-12" onClick={handleApply}>
               Apply Filter ({isActive ? selectedValues?.length ?? 0 : 0})
             </Button>
           </div>

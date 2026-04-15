@@ -15,6 +15,9 @@ import { Label } from "@/components/ui/label";
 import { BackButton } from "@/components/common/back-button";
 import { loginWithEmailPassword } from "@/lib/auth";
 import { useAuth } from "@/components/providers/auth-provider";
+import { auth } from "@/lib/firebase";
+import { getUserById } from "@/lib/firestore";
+import { signOut } from "firebase/auth";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -45,7 +48,15 @@ export default function LoginPage() {
   const onSubmit = async (values: LoginForm) => {
     setLoading(true);
     try {
-      await loginWithEmailPassword(values.email, values.password);
+      const credential = await loginWithEmailPassword(values.email, values.password);
+      const profile = await getUserById(credential.user.uid);
+
+      if (profile?.status === "disabled") {
+        await signOut(auth);
+        toast.error("Your account is disabled. Please contact superadmin.");
+        return;
+      }
+
       toast.success("Logged in successfully");
       router.replace("/dashboard");
     } catch {

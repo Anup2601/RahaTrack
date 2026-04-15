@@ -8,11 +8,11 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className="relative w-full overflow-x-auto rounded-xl border border-border"
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("w-full caption-bottom text-sm border-separate border-spacing-0", className)}
         {...props}
       />
     </div>
@@ -70,7 +70,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "h-10 border-x border-b border-border px-2 text-center align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0 [&>div]:relative [&>div]:flex [&>div]:items-center [&>div]:justify-center! [&>div]:px-8 [&>div>button[aria-label^='Filter']]:absolute [&>div>button[aria-label^='Filter']]:right-0 [&>div>span]:w-full [&>div>span]:text-center",
         className
       )}
       {...props}
@@ -83,7 +83,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "border-x border-b border-border p-2 align-middle whitespace-nowrap text-center [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}

@@ -9,7 +9,7 @@ import { LoadingCards } from "@/components/common/loading-cards";
 import { StatusBadge } from "@/components/common/status-badge";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   createSection,
@@ -78,7 +78,7 @@ export default function DashboardPage() {
       });
   }, [search, sections, statusFilter]);
 
-  const handleCreateSection = async (name: string) => {
+  const handleCreateSection = async (name: string, description: string) => {
     if (!isSuperAdmin) {
       toast.error("Only superadmin can create sections");
       return;
@@ -86,10 +86,10 @@ export default function DashboardPage() {
 
     try {
       if (editingSection) {
-        await updateSection(editingSection.id, name.trim());
+        await updateSection(editingSection.id, name.trim(), description.trim());
         toast.success("Section updated");
       } else {
-        await createSection(name.trim());
+        await createSection(name.trim(), description.trim());
         toast.success("Section created");
       }
 
@@ -186,6 +186,9 @@ export default function DashboardPage() {
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Section</p>
                     <CardTitle className="mt-1 text-lg">{section.name}</CardTitle>
+                    <CardDescription className="mt-2 line-clamp-2">
+                      {section.description ?? "No description provided."}
+                    </CardDescription>
                   </div>
                   <StatusBadge status={section.status} />
                 </CardHeader>
@@ -243,7 +246,10 @@ export default function DashboardPage() {
         title={editingSection ? "Edit Section" : "Add Section"}
         label="Section Name"
         placeholder="For example: Section A"
+        descriptionLabel="Section Description"
+        descriptionPlaceholder="Add a short description for this section"
         initialValue={editingSection?.name}
+        initialDescription={editingSection?.description}
         submitLabel={editingSection ? "Update" : "Save"}
         onSubmit={handleCreateSection}
       />

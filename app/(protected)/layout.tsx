@@ -55,6 +55,14 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     }
   };
 
+  useEffect(() => {
+    if (!loading && user && appUser?.status === "disabled") {
+      void logoutUser();
+      toast.error("Your account is disabled. Please contact superadmin.");
+      router.replace("/login");
+    }
+  }, [appUser?.status, loading, router, user]);
+
   return (
     <div className="min-h-screen bg-[#ececec] md:grid md:grid-cols-[15.5rem_1fr]">
       <Sidebar />

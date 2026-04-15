@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 
 const formSchema = z.object({
   name: z.string().min(2, "Please enter at least 2 characters"),
+  description: z.string().max(500, "Description must be 500 characters or less"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -21,9 +22,12 @@ interface AddModalProps {
   title: string;
   label: string;
   placeholder: string;
+  descriptionLabel?: string;
+  descriptionPlaceholder?: string;
   initialValue?: string;
+  initialDescription?: string;
   submitLabel?: string;
-  onSubmit: (name: string) => Promise<void>;
+  onSubmit: (name: string, description: string) => Promise<void>;
 }
 
 export function AddModal({
@@ -32,26 +36,29 @@ export function AddModal({
   title,
   label,
   placeholder,
+  descriptionLabel = "Description",
+  descriptionPlaceholder = "Add a short description",
   initialValue = "",
+  initialDescription = "",
   submitLabel = "Save",
   onSubmit,
 }: AddModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: initialValue },
+    defaultValues: { name: initialValue, description: initialDescription },
   });
 
   useEffect(() => {
     if (open) {
-      form.reset({ name: initialValue });
+      form.reset({ name: initialValue, description: initialDescription });
     }
-  }, [form, initialValue, open]);
+  }, [form, initialDescription, initialValue, open]);
 
   const handleSubmit = async (values: FormValues) => {
     setSubmitting(true);
     try {
-      await onSubmit(values.name);
+      await onSubmit(values.name, values.description.trim());
       form.reset();
       onOpenChange(false);
     } finally {
@@ -71,6 +78,19 @@ export function AddModal({
             <Input id="entityName" placeholder={placeholder} {...form.register("name")} />
             {form.formState.errors.name && (
               <p className="text-sm text-red-600">{form.formState.errors.name.message}</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="entityDescription">{descriptionLabel}</Label>
+            <textarea
+              id="entityDescription"
+              placeholder={descriptionPlaceholder}
+              rows={4}
+              className="min-h-24 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              {...form.register("description")}
+            />
+            {form.formState.errors.description && (
+              <p className="text-sm text-red-600">{form.formState.errors.description.message}</p>
             )}
           </div>
           <Button type="submit" className="w-full" disabled={submitting}>

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { Download, Plus } from "lucide-react";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { Download, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { TableColumnFilter, type ColumnFilterOption } from "@/components/common/table-column-filter";
 import { Button } from "@/components/ui/button";
@@ -17,14 +18,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { StatusBadge } from "@/components/common/status-badge";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
+  createAttachment,
+  deleteAttachment,
   getAnnexureContextByRowId,
   getAttachmentsByAnnexure,
   getLogRowsByParentRow,
   saveLogRowsByParentRow,
+  updateAttachment,
 } from "@/lib/firestore";
+import { storage } from "@/lib/firebase";
 import { AttachmentDoc, LogRow } from "@/lib/types";
 
 const getNow = () => {
@@ -35,17 +39,47 @@ const getNow = () => {
   };
 };
 
+const getStorageUploadErrorMessage = (error: unknown) => {
+  if (!error || typeof error !== "object" || !("code" in error)) {
+    return "Upload failed. Check Firebase Storage setup and bucket name.";
+  }
+
+  const code = String((error as { code?: string }).code ?? "");
+
+  if (code.includes("storage/unauthorized")) {
+    return "Upload blocked by Firebase Storage Rules. Allow authenticated write access.";
+  }
+
+  if (code.includes("storage/bucket-not-found")) {
+    return "Storage bucket not found. Check NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET in .env and Firebase project settings.";
+  }
+
+  if (code.includes("storage/invalid-argument")) {
+    return "Invalid storage configuration. Check your Firebase env values and restart the app.";
+  }
+
+  return `Upload failed (${code || "unknown"}). Check Firebase Storage configuration.`;
+};
+
 export default function TableLogPage() {
   const params = useParams<{ id: string }>();
   const parentRowId = params.id;
-  const { user, canComment, loading: authLoading } = useAuth();
+  const { user, canComment, isSuperAdmin, loading: authLoading } = useAuth();
 
   const [rows, setRows] = useState<LogRow[]>([]);
   const [attachments, setAttachments] = useState<AttachmentDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [addAttachmentOpen, setAddAttachmentOpen] = useState(false);
+  const [editAttachmentOpen, setEditAttachmentOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"comments" | "attachments">("comments");
   const [remark, setRemark] = useState("");
+  const [attachmentAnnexureId, setAttachmentAnnexureId] = useState<string | null>(null);
+  const [rowAttachmentNames, setRowAttachmentNames] = useState<string[]>([]);
+  const [attachmentName, setAttachmentName] = useState("");
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [editingAttachment, setEditingAttachment] = useState<AttachmentDoc | null>(null);
+  const [attachmentSaving, setAttachmentSaving] = useState(false);
   const [commentFilters, setCommentFilters] = useState({
     date: null as string[] | null,
     time: null as string[] | null,
@@ -54,7 +88,6 @@ export default function TableLogPage() {
   });
   const [attachmentFilters, setAttachmentFilters] = useState({
     name: null as string[] | null,
-    status: null as string[] | null,
   });
 
   const username = useMemo(() => user?.displayName || user?.email || "Unknown user", [user]);
@@ -101,6 +134,15 @@ export default function TableLogPage() {
     });
   }, [commentFilters, rows]);
 
+  const scopedAttachments = useMemo(() => {
+    if (rowAttachmentNames.length === 0) {
+      return [];
+    }
+
+    const allowed = new Set(rowAttachmentNames.map((name) => name.trim().toLowerCase()).filter(Boolean));
+    return attachments.filter((item) => allowed.has(item.name.trim().toLowerCase()));
+  }, [attachments, rowAttachmentNames]);
+
   const attachmentFilterOptions = useMemo(() => {
     const buildOptions = (values: string[]): ColumnFilterOption[] => {
       const counts = values.reduce<Record<string, number>>((acc, value) => {
@@ -114,24 +156,19 @@ export default function TableLogPage() {
     };
 
     return {
-      name: buildOptions(attachments.map((item) => item.name || "-")),
-      status: buildOptions(attachments.map((item) => item.status)),
+      name: buildOptions(scopedAttachments.map((item) => item.name || "-")),
     };
-  }, [attachments]);
+  }, [scopedAttachments]);
 
   const filteredAttachments = useMemo(() => {
-    return attachments.filter((item) => {
+    return scopedAttachments.filter((item) => {
       if (attachmentFilters.name && !attachmentFilters.name.includes(item.name || "-")) {
-        return false;
-      }
-
-      if (attachmentFilters.status && !attachmentFilters.status.includes(item.status)) {
         return false;
       }
 
       return true;
     });
-  }, [attachmentFilters, attachments]);
+  }, [attachmentFilters, scopedAttachments]);
 
   useEffect(() => {
     const load = async () => {
@@ -144,9 +181,13 @@ export default function TableLogPage() {
         setRows(logData);
 
         if (annexureContext?.annexureId) {
+          setAttachmentAnnexureId(annexureContext.annexureId);
+          setRowAttachmentNames(annexureContext.attachmentNames ?? []);
           const attachmentData = await getAttachmentsByAnnexure(annexureContext.annexureId);
           setAttachments(attachmentData);
         } else {
+          setAttachmentAnnexureId(null);
+          setRowAttachmentNames([]);
           setAttachments([]);
         }
       } catch {
@@ -162,6 +203,11 @@ export default function TableLogPage() {
   const persist = async (nextRows: LogRow[]) => {
     await saveLogRowsByParentRow(parentRowId, nextRows);
     setRows(nextRows);
+  };
+
+  const refreshAttachments = async (annexureId: string) => {
+    const attachmentData = await getAttachmentsByAnnexure(annexureId);
+    setAttachments(attachmentData);
   };
 
   const openAdd = () => {
@@ -199,6 +245,134 @@ export default function TableLogPage() {
       setOpen(false);
     } catch {
       toast.error("Failed to save log");
+    }
+  };
+
+  const openAddAttachment = () => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can add attachments");
+      return;
+    }
+
+    if (!attachmentAnnexureId) {
+      toast.error("Annexure context not found for this row");
+      return;
+    }
+
+    setAttachmentName("");
+    setAttachmentFile(null);
+    setAddAttachmentOpen(true);
+  };
+
+  const openEditAttachment = (item: AttachmentDoc) => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can update attachments");
+      return;
+    }
+
+    setEditingAttachment(item);
+    setAttachmentName(item.name);
+    setEditAttachmentOpen(true);
+  };
+
+  const handleCreateAttachment = async () => {
+    if (!attachmentAnnexureId) {
+      toast.error("Annexure context not found for this row");
+      return;
+    }
+
+    if (!attachmentFile) {
+      toast.error("Please select a file");
+      return;
+    }
+
+    const finalName = attachmentName.trim() || attachmentFile.name;
+
+    setAttachmentSaving(true);
+    try {
+      const filePath = `annexures/${attachmentAnnexureId}/attachments/${Date.now()}-${attachmentFile.name}`;
+      const storageRef = ref(storage, filePath);
+      await uploadBytes(storageRef, attachmentFile);
+      const fileUrl = await getDownloadURL(storageRef);
+
+      await createAttachment({
+        annexureId: attachmentAnnexureId,
+        name: finalName,
+        fileUrl,
+        filePath,
+      });
+
+      setRowAttachmentNames((previous) => {
+        const hasName = previous.some(
+          (name) => name.trim().toLowerCase() === finalName.trim().toLowerCase(),
+        );
+        return hasName ? previous : [...previous, finalName];
+      });
+
+      await refreshAttachments(attachmentAnnexureId);
+      toast.success("Attachment added");
+      setAddAttachmentOpen(false);
+      setAttachmentName("");
+      setAttachmentFile(null);
+    } catch (error) {
+      console.error("Attachment upload failed:", error);
+      toast.error(getStorageUploadErrorMessage(error));
+    } finally {
+      setAttachmentSaving(false);
+    }
+  };
+
+  const handleUpdateAttachment = async () => {
+    if (!editingAttachment) {
+      toast.error("Attachment not found");
+      return;
+    }
+
+    if (!attachmentName.trim()) {
+      toast.error("Attachment name is required");
+      return;
+    }
+
+    setAttachmentSaving(true);
+    try {
+      await updateAttachment(editingAttachment.id, attachmentName.trim());
+
+      if (attachmentAnnexureId) {
+        await refreshAttachments(attachmentAnnexureId);
+      }
+
+      toast.success("Attachment updated");
+      setEditAttachmentOpen(false);
+      setEditingAttachment(null);
+      setAttachmentName("");
+    } catch {
+      toast.error("Failed to update attachment");
+    } finally {
+      setAttachmentSaving(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (item: AttachmentDoc) => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can delete attachments");
+      return;
+    }
+
+    const confirmed = toast(`Delete attachment \"${item.name}\"?`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteAttachment(item.id);
+
+      if (attachmentAnnexureId) {
+        await refreshAttachments(attachmentAnnexureId);
+      }
+
+      toast.success("Attachment deleted");
+    } catch {
+      toast.error("Failed to delete attachment");
     }
   };
 
@@ -250,7 +424,7 @@ export default function TableLogPage() {
             <div className="overflow-x-auto">
               <Table className="min-w-225">
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-[#8a8a8a] border-slate-300 hover:bg-[#8a8a8a]/20">
                     <TableHead>S No.</TableHead>
                     <TableHead>
                       <div className="flex items-center justify-between gap-2">
@@ -334,7 +508,7 @@ export default function TableLogPage() {
           ) : (
             <div className="overflow-x-auto">
               <Table className="min-w-180">
-                <TableHeader>
+                <TableHeader className="bg-[#8a8a8a]">
                   <TableRow>
                     <TableHead>S No.</TableHead>
                     <TableHead>
@@ -350,26 +524,13 @@ export default function TableLogPage() {
                         />
                       </div>
                     </TableHead>
-                    <TableHead>Download</TableHead>
-                    <TableHead>
-                      <div className="flex items-center justify-between gap-2">
-                        <span>Status</span>
-                        <TableColumnFilter
-                          title="Attachment Status"
-                          options={attachmentFilterOptions.status}
-                          selectedValues={attachmentFilters.status}
-                          onApply={(values) =>
-                            setAttachmentFilters((previous) => ({ ...previous, status: values }))
-                          }
-                        />
-                      </div>
-                    </TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAttachments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="h-14 text-center text-muted-foreground">
+                      <TableCell colSpan={3} className="h-14 text-center text-muted-foreground">
                         No attachments found for selected filters.
                       </TableCell>
                     </TableRow>
@@ -381,19 +542,61 @@ export default function TableLogPage() {
                           <p className="max-w-75 truncate" title={item.name}>{item.name}</p>
                         </TableCell>
                         <TableCell>
-                          <a
-                            href={item.fileUrl}
-                            download={item.name}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary/15"
-                          >
-                            <Download className="size-4" />
-                            Download
-                          </a>
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={item.status} />
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              title="View"
+                              aria-label={`View ${item.name}`}
+                              onClick={() => window.open(item.fileUrl, "_blank", "noopener,noreferrer")}
+                            >
+                              <Eye className="size-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              title="Delete"
+                              aria-label={`Delete ${item.name}`}
+                              onClick={() => handleDeleteAttachment(item)}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              title="Add"
+                              aria-label={`Add for ${item.name}`}
+                              onClick={openAddAttachment}
+                            >
+                              <Plus className="size-4" />
+                            </Button>
+                            {/* <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              title="Update"
+                              aria-label={`Update ${item.name}`}
+                              onClick={() => openEditAttachment(item)}
+                            >
+                              <Pencil className="size-4" />
+                            </Button> */}
+                            <a
+                              href={item.fileUrl}
+                              download={item.name}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex"
+                              title="Download"
+                              aria-label={`Download ${item.name}`}
+                            >
+                              <Button type="button" variant="ghost" size="icon-sm">
+                                <Download className="size-4" />
+                              </Button>
+                            </a>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -422,6 +625,55 @@ export default function TableLogPage() {
 />
             <Button className="w-full" onClick={saveLog}>
               Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addAttachmentOpen} onOpenChange={setAddAttachmentOpen}>
+        <DialogContent className="rounded-2xl sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Attachment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Attachment name (optional)"
+              value={attachmentName}
+              onChange={(e) => setAttachmentName(e.target.value)}
+            />
+            <Input
+              type="file"
+              onChange={(e) => setAttachmentFile(e.target.files?.[0] ?? null)}
+            />
+            <Button className="w-full" onClick={handleCreateAttachment} disabled={attachmentSaving}>
+              {attachmentSaving ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editAttachmentOpen}
+        onOpenChange={(next) => {
+          setEditAttachmentOpen(next);
+          if (!next) {
+            setEditingAttachment(null);
+            setAttachmentName("");
+          }
+        }}
+      >
+        <DialogContent className="rounded-2xl sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Update Attachment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Attachment name"
+              value={attachmentName}
+              onChange={(e) => setAttachmentName(e.target.value)}
+            />
+            <Button className="w-full" onClick={handleUpdateAttachment} disabled={attachmentSaving}>
+              {attachmentSaving ? "Updating..." : "Update"}
             </Button>
           </div>
         </DialogContent>

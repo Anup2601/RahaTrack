@@ -263,7 +263,7 @@ export function TableComponent({
                 />
               </div>
             </TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead className="text-center">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

@@ -88,6 +88,34 @@ const getNestedTableByParentRow = async (parentRowId: string) => {
   } as NestedTableDoc;
 };
 
+const syncAnnexureRowLatestRemark = async (parentRowId: string, latestRemark: string) => {
+  const tablesSnapshot = await getDocs(tablesCollection);
+
+  for (const tableDoc of tablesSnapshot.docs) {
+    const data = tableDoc.data();
+    const rows = (data.rows ?? []) as DynamicRow[];
+    const rowIndex = rows.findIndex((row) => String(row.id ?? "") === parentRowId);
+
+    if (rowIndex === -1) {
+      continue;
+    }
+
+    const nextRows = rows.map((row, index) => {
+      if (index !== rowIndex) {
+        return row;
+      }
+
+      return {
+        ...row,
+        latestRemark,
+      };
+    });
+
+    await updateDoc(doc(tablesCollection, tableDoc.id), { rows: nextRows });
+    return;
+  }
+};
+
 export const ensureUserDocument = async (payload: AppUser) => {
   const ref = doc(usersCollection, payload.id);
   const snapshot = await getDoc(ref);
@@ -99,6 +127,7 @@ export const ensureUserDocument = async (payload: AppUser) => {
       id: payload.id,
       email: payload.email,
       role: isRole(existing?.role) ? existing.role : payload.role,
+      status: existing?.status ?? payload.status ?? "active",
       name: payload.name ?? existing?.name ?? null,
       createdAt: existing?.createdAt ?? serverTimestamp(),
     },
@@ -119,6 +148,7 @@ export const getUserById = async (id: string): Promise<AppUser | null> => {
     id: snapshot.id,
     email: String(data.email ?? ""),
     role: isRole(data.role) ? data.role : "viewer",
+    status: (data.status as EntityStatus) ?? "active",
     name: data.name ? String(data.name) : undefined,
     createdAt: toIsoDate(data.createdAt),
   };
@@ -139,6 +169,7 @@ export const subscribeUsers = (
           id: item.id,
           email: String(data.email ?? ""),
           role: isRole(data.role) ? data.role : "viewer",
+          status: (data.status as EntityStatus) ?? "active",
           name: data.name ? String(data.name) : undefined,
           createdAt: toIsoDate(data.createdAt),
         } as AppUser;
@@ -151,6 +182,21 @@ export const subscribeUsers = (
       onError?.(error);
     },
   );
+};
+
+export const updateUserProfile = async (id: string, payload: { email: string; role: UserRole }) => {
+  await updateDoc(doc(usersCollection, id), {
+    email: payload.email,
+    role: payload.role,
+  });
+};
+
+export const updateUserStatus = async (id: string, status: EntityStatus) => {
+  await updateDoc(doc(usersCollection, id), { status });
+};
+
+export const deleteUserProfile = async (id: string) => {
+  await deleteDoc(doc(usersCollection, id));
 };
 
 export const subscribeSections = (
@@ -166,6 +212,7 @@ export const subscribeSections = (
         return {
           id: item.id,
           name: data.name,
+          description: data.description ? String(data.description) : undefined,
           status: data.status,
           createdAt: toIsoDate(data.createdAt),
         } as Section;
@@ -180,16 +227,17 @@ export const subscribeSections = (
   );
 };
 
-export const createSection = async (name: string) => {
+export const createSection = async (name: string, description: string) => {
   return addDoc(sectionsCollection, {
     name,
+    description,
     status: "active" as EntityStatus,
     createdAt: serverTimestamp(),
   });
 };
 
-export const updateSection = async (id: string, name: string) => {
-  await updateDoc(doc(sectionsCollection, id), { name });
+export const updateSection = async (id: string, name: string, description: string) => {
+  await updateDoc(doc(sectionsCollection, id), { name, description });
 };
 
 export const updateSectionStatus = async (id: string, status: EntityStatus) => {
@@ -213,6 +261,7 @@ export const getSectionById = async (id: string) => {
   return {
     id: snapshot.id,
     name: data.name,
+    description: data.description ? String(data.description) : undefined,
     status: data.status,
     createdAt: toIsoDate(data.createdAt),
   } as Section;
@@ -235,6 +284,7 @@ export const subscribeAnnexuresBySection = (
             id: item.id,
             sectionId: data.sectionId,
             name: data.name,
+            description: data.description ? String(data.description) : undefined,
             status: data.status,
             createdAt: toIsoDate(data.createdAt),
           } as Annexure;
@@ -275,6 +325,7 @@ export const subscribeAllAnnexures = (
             id: item.id,
             sectionId: data.sectionId,
             name: data.name,
+            description: data.description ? String(data.description) : undefined,
             status: data.status,
             createdAt: toIsoDate(data.createdAt),
           } as Annexure;
@@ -299,17 +350,18 @@ export const subscribeAllAnnexures = (
   );
 };
 
-export const createAnnexure = async (sectionId: string, name: string) => {
+export const createAnnexure = async (sectionId: string, name: string, description: string) => {
   return addDoc(annexuresCollection, {
     sectionId,
     name,
+    description,
     status: "active" as EntityStatus,
     createdAt: serverTimestamp(),
   });
 };
 
-export const updateAnnexure = async (id: string, name: string) => {
-  await updateDoc(doc(annexuresCollection, id), { name });
+export const updateAnnexure = async (id: string, name: string, description: string) => {
+  await updateDoc(doc(annexuresCollection, id), { name, description });
 };
 
 export const updateAnnexureStatus = async (id: string, status: EntityStatus) => {
@@ -701,6 +753,13 @@ export const saveLogRowsByParentRow = async (
     ["sNo", "date", "time", "username", "workStatus", "remark"],
     nested.status,
   );
+
+  const latestRemark = [...rows]
+    .reverse()
+    .find((row) => row.remark.trim())
+    ?.remark.trim() ?? "";
+
+  await syncAnnexureRowLatestRemark(parentRowId, latestRemark);
 };
 
 export const appendLogRowByParentRow = async (parentRowId: string, row: LogRow) => {
