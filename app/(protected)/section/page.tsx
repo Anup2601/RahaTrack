@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, Plus } from "lucide-react";
+import { MoreHorizontal, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { AddModal } from "@/components/common/add-modal";
 import { LoadingCards } from "@/components/common/loading-cards";
@@ -11,10 +11,22 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { createSection, subscribeSections, updateSectionStatus } from "@/lib/firestore";
+import {
+  createSection,
+  deleteSection,
+  subscribeSections,
+  updateSection,
+  updateSectionStatus,
+} from "@/lib/firestore";
 import { Section } from "@/lib/types";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const allStatuses = ["all", "active", "disabled"] as const;
 
@@ -24,6 +36,7 @@ export default function DashboardPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof allStatuses)[number]>("all");
   const [openModal, setOpenModal] = useState(false);
+  const [editingSection, setEditingSection] = useState<Section | null>(null);
   const { isSuperAdmin } = useAuth();
 
   useEffect(() => {
@@ -72,10 +85,17 @@ export default function DashboardPage() {
     }
 
     try {
-      await createSection(name);
-      toast.success("Section created");
+      if (editingSection) {
+        await updateSection(editingSection.id, name.trim());
+        toast.success("Section updated");
+      } else {
+        await createSection(name.trim());
+        toast.success("Section created");
+      }
+
+      setEditingSection(null);
     } catch {
-      toast.error("Failed to create section");
+      toast.error(editingSection ? "Failed to update section" : "Failed to create section");
     }
   };
 
@@ -93,6 +113,24 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDeleteSection = async (section: Section) => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can delete sections");
+      return;
+    }
+
+    if (!window.confirm(`Delete section \"${section.name}\"? This will remove its annexures too.`)) {
+      return;
+    }
+
+    try {
+      await deleteSection(section.id);
+      toast.success("Section deleted");
+    } catch {
+      toast.error("Unable to delete section");
+    }
+  };
+
   return (
     <div className="space-y-6">
       
@@ -101,7 +139,12 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-xl font-semibold">Sections</h3>
           {isSuperAdmin && (
-            <Button onClick={() => setOpenModal(true)}>
+            <Button
+              onClick={() => {
+                setEditingSection(null);
+                setOpenModal(true);
+              }}
+            >
               <Plus className="mr-2 size-4" />
               Add Section
             </Button>
@@ -158,7 +201,24 @@ export default function DashboardPage() {
                       <Button size="sm" onClick={() => handleToggleStatus(section)}>
                         {section.status === "disabled" ? "Enable" : "Disable"}
                       </Button>
-                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                          <MoreHorizontal className="size-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditingSection(section);
+                              setOpenModal(true);
+                            }}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem variant="destructive" onClick={() => handleDeleteSection(section)}>
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </>
                   )}
                 </CardFooter>
@@ -174,10 +234,17 @@ export default function DashboardPage() {
 
       <AddModal
         open={openModal}
-        onOpenChange={setOpenModal}
-        title="Add Section"
+        onOpenChange={(open) => {
+          setOpenModal(open);
+          if (!open) {
+            setEditingSection(null);
+          }
+        }}
+        title={editingSection ? "Edit Section" : "Add Section"}
         label="Section Name"
         placeholder="For example: Section A"
+        initialValue={editingSection?.name}
+        submitLabel={editingSection ? "Update" : "Save"}
         onSubmit={handleCreateSection}
       />
     </div>

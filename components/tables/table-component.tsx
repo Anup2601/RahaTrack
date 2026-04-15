@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { MoreHorizontal, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { TableColumnFilter, type ColumnFilterOption } from "@/components/common/table-column-filter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -63,6 +64,7 @@ export function TableComponent({
   const [localColumns, setLocalColumns] = useState<string[]>(columns);
   const [columnInput, setColumnInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [filters, setFilters] = useState<Record<string, string[] | null>>({});
 
   const byId = useMemo(() => {
     return rows.reduce<Record<string, DynamicRow>>((acc, item) => {
@@ -70,6 +72,45 @@ export function TableComponent({
       return acc;
     }, {});
   }, [rows]);
+
+  const filterOptions = useMemo(() => {
+    const buildOptions = (values: string[]): ColumnFilterOption[] => {
+      const counts = values.reduce<Record<string, number>>((acc, value) => {
+        acc[value] = (acc[value] ?? 0) + 1;
+        return acc;
+      }, {});
+
+      return Object.entries(counts)
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => a.value.localeCompare(b.value));
+    };
+
+    const options: Record<string, ColumnFilterOption[]> = {};
+
+    localColumns.forEach((column) => {
+      options[column] = buildOptions(rows.map((row) => String(row[column] ?? "-")));
+    });
+
+    options.status = buildOptions(rows.map((row) => String(row.status ?? "active")));
+
+    return options;
+  }, [localColumns, rows]);
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      return Object.entries(filters).every(([key, value]) => {
+        if (!value) {
+          return true;
+        }
+
+        if (key === "status") {
+          return value.includes(String(row.status ?? "active"));
+        }
+
+        return value.includes(String(row[key] ?? "-"));
+      });
+    });
+  }, [filters, rows]);
 
   const handleAddColumn = async () => {
     const parsed = columnInput.trim().toLowerCase().replace(/\s+/g, "_");
@@ -189,21 +230,51 @@ export function TableComponent({
         <TableHeader>
           <TableRow>
             {localColumns.map((column) => (
-              <TableHead key={column}>{toLabel(column)}</TableHead>
+              <TableHead key={column}>
+                <div className="flex items-center justify-between gap-2">
+                  <span>{toLabel(column)}</span>
+                  <TableColumnFilter
+                    title={toLabel(column)}
+                    options={filterOptions[column] ?? []}
+                    selectedValues={filters[column] ?? null}
+                    onApply={(values) =>
+                      setFilters((previous) => ({
+                        ...previous,
+                        [column]: values,
+                      }))
+                    }
+                  />
+                </div>
+              </TableHead>
             ))}
-            <TableHead>Status</TableHead>
+            <TableHead>
+              <div className="flex items-center justify-between gap-2">
+                <span>Status</span>
+                <TableColumnFilter
+                  title="Status"
+                  options={filterOptions.status ?? []}
+                  selectedValues={filters.status ?? null}
+                  onApply={(values) =>
+                    setFilters((previous) => ({
+                      ...previous,
+                      status: values,
+                    }))
+                  }
+                />
+              </div>
+            </TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.length === 0 ? (
+          {filteredRows.length === 0 ? (
             <TableRow>
               <TableCell colSpan={localColumns.length + 2} className="h-24 text-center text-muted-foreground">
-                No rows found. Add one to get started.
+                No rows found for selected filters.
               </TableCell>
             </TableRow>
           ) : (
-            rows.map((row) => (
+            filteredRows.map((row) => (
               <TableRow
                 key={row.id}
                 className={onRowClick && row.status !== "disabled" ? "cursor-pointer" : ""}

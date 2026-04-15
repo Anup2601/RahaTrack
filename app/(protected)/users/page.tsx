@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { TableColumnFilter, type ColumnFilterOption } from "@/components/common/table-column-filter";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +49,50 @@ export default function UsersPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("viewer");
+  const [tableFilters, setTableFilters] = useState({
+    email: null as string[] | null,
+    role: null as string[] | null,
+    created: null as string[] | null,
+  });
+
+  const createdLabel = (item: AppUser) => (item.createdAt ? new Date(item.createdAt).toLocaleString() : "-");
+
+  const filterOptions = useMemo(() => {
+    const buildOptions = (values: string[]): ColumnFilterOption[] => {
+      const counts = values.reduce<Record<string, number>>((acc, value) => {
+        acc[value] = (acc[value] ?? 0) + 1;
+        return acc;
+      }, {});
+
+      return Object.entries(counts)
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => a.value.localeCompare(b.value));
+    };
+
+    return {
+      email: buildOptions(users.map((item) => item.email)),
+      role: buildOptions(users.map((item) => item.role)),
+      created: buildOptions(users.map((item) => createdLabel(item))),
+    };
+  }, [users]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((item) => {
+      if (tableFilters.email && !tableFilters.email.includes(item.email)) {
+        return false;
+      }
+
+      if (tableFilters.role && !tableFilters.role.includes(item.role)) {
+        return false;
+      }
+
+      if (tableFilters.created && !tableFilters.created.includes(createdLabel(item))) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [tableFilters, users]);
 
   useEffect(() => {
     if (!authLoading && !isSuperAdmin) {
@@ -163,24 +208,60 @@ export default function UsersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>
+                      <div className="flex items-center justify-between gap-2">
+                        <span>Email</span>
+                        <TableColumnFilter
+                          title="Email"
+                          options={filterOptions.email}
+                          selectedValues={tableFilters.email}
+                          onApply={(values) =>
+                            setTableFilters((previous) => ({ ...previous, email: values }))
+                          }
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex items-center justify-between gap-2">
+                        <span>Role</span>
+                        <TableColumnFilter
+                          title="Role"
+                          options={filterOptions.role}
+                          selectedValues={tableFilters.role}
+                          onApply={(values) =>
+                            setTableFilters((previous) => ({ ...previous, role: values }))
+                          }
+                        />
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex items-center justify-between gap-2">
+                        <span>Created</span>
+                        <TableColumnFilter
+                          title="Created"
+                          options={filterOptions.created}
+                          selectedValues={tableFilters.created}
+                          onApply={(values) =>
+                            setTableFilters((previous) => ({ ...previous, created: values }))
+                          }
+                        />
+                      </div>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.length === 0 ? (
+                  {filteredUsers.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={3} className="h-14 text-center text-muted-foreground">
-                        No users found.
+                        No users found for selected filters.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    users.map((item) => (
+                    filteredUsers.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell>{item.email}</TableCell>
                         <TableCell className="capitalize">{item.role}</TableCell>
-                        <TableCell>{item.createdAt ? new Date(item.createdAt).toLocaleString() : "-"}</TableCell>
+                        <TableCell>{createdLabel(item)}</TableCell>
                       </TableRow>
                     ))
                   )}

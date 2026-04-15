@@ -188,8 +188,19 @@ export const createSection = async (name: string) => {
   });
 };
 
+export const updateSection = async (id: string, name: string) => {
+  await updateDoc(doc(sectionsCollection, id), { name });
+};
+
 export const updateSectionStatus = async (id: string, status: EntityStatus) => {
   await updateDoc(doc(sectionsCollection, id), { status });
+};
+
+export const deleteSection = async (id: string) => {
+  const annexureSnapshot = await getDocs(query(annexuresCollection, where("sectionId", "==", id)));
+
+  await Promise.all(annexureSnapshot.docs.map((item) => deleteAnnexure(item.id)));
+  await deleteDoc(doc(sectionsCollection, id));
 };
 
 export const getSectionById = async (id: string) => {
@@ -248,6 +259,46 @@ export const subscribeAnnexuresBySection = (
   );
 };
 
+export const subscribeAllAnnexures = (
+  onData: (data: Annexure[]) => void,
+  onError?: (error: Error) => void,
+) => {
+  const q = query(annexuresCollection, orderBy("createdAt", "asc"));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const annexures = snapshot.docs
+        .map((item) => {
+          const data = item.data();
+          return {
+            id: item.id,
+            sectionId: data.sectionId,
+            name: data.name,
+            status: data.status,
+            createdAt: toIsoDate(data.createdAt),
+          } as Annexure;
+        })
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+          if (aTime === bTime) {
+            return a.name.localeCompare(b.name);
+          }
+
+          return aTime - bTime;
+        });
+
+      onData(annexures);
+    },
+    (error) => {
+      console.error("subscribeAllAnnexures listener error:", error);
+      onError?.(error);
+    },
+  );
+};
+
 export const createAnnexure = async (sectionId: string, name: string) => {
   return addDoc(annexuresCollection, {
     sectionId,
@@ -257,8 +308,49 @@ export const createAnnexure = async (sectionId: string, name: string) => {
   });
 };
 
+export const updateAnnexure = async (id: string, name: string) => {
+  await updateDoc(doc(annexuresCollection, id), { name });
+};
+
 export const updateAnnexureStatus = async (id: string, status: EntityStatus) => {
   await updateDoc(doc(annexuresCollection, id), { status });
+};
+
+export const deleteAnnexure = async (id: string) => {
+  const annexureRef = doc(annexuresCollection, id);
+  const annexureSnapshot = await getDoc(annexureRef);
+
+  if (!annexureSnapshot.exists()) {
+    return;
+  }
+
+  const attachmentsSnapshot = await getDocs(query(attachmentsCollection, where("annexureId", "==", id)));
+  const contactsSnapshot = await getDocs(query(contactsCollection, where("annexureId", "==", id)));
+  const tablesSnapshot = await getDocs(query(tablesCollection, where("annexureId", "==", id)));
+
+  const rowIds = tablesSnapshot.docs.flatMap((tableDoc) => {
+    const data = tableDoc.data();
+    return ((data.rows ?? []) as DynamicRow[])
+      .map((row) => String(row.id ?? ""))
+      .filter(Boolean);
+  });
+
+  const nestedSnapshot = rowIds.length > 0 ? await getDocs(nestedTablesCollection) : null;
+
+  await Promise.all(attachmentsSnapshot.docs.map((item) => deleteDoc(item.ref)));
+  await Promise.all(contactsSnapshot.docs.map((item) => deleteDoc(item.ref)));
+  await Promise.all(tablesSnapshot.docs.map((item) => deleteDoc(item.ref)));
+
+  if (nestedSnapshot) {
+    const rowIdSet = new Set(rowIds);
+    await Promise.all(
+      nestedSnapshot.docs
+        .filter((item) => rowIdSet.has(String(item.data().parentRowId ?? "")))
+        .map((item) => deleteDoc(item.ref)),
+    );
+  }
+
+  await deleteDoc(annexureRef);
 };
 
 export const getAnnexureById = async (id: string) => {
@@ -609,4 +701,14 @@ export const saveLogRowsByParentRow = async (
     ["sNo", "date", "time", "username", "workStatus", "remark"],
     nested.status,
   );
+};
+
+export const appendLogRowByParentRow = async (parentRowId: string, row: LogRow) => {
+  const existingRows = await getLogRowsByParentRow(parentRowId);
+  const nextRow: LogRow = {
+    ...row,
+    sNo: String(existingRows.length + 1),
+  };
+
+  await saveLogRowsByParentRow(parentRowId, [...existingRows, nextRow]);
 };

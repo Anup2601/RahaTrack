@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Plus } from "lucide-react";
+import { MoreHorizontal, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { AddModal } from "@/components/common/add-modal";
 import { LoadingCards } from "@/components/common/loading-cards";
@@ -13,12 +13,20 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   createAnnexure,
+  deleteAnnexure,
   getSectionById,
   subscribeAnnexuresBySection,
+  updateAnnexure,
   updateAnnexureStatus,
 } from "@/lib/firestore";
 import { Annexure, Section } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function SectionPage() {
   const params = useParams<{ id: string }>();
@@ -26,6 +34,7 @@ export default function SectionPage() {
   const [annexures, setAnnexures] = useState<Annexure[]>([]);
   const [loading, setLoading] = useState(true);
   const [openModal, setOpenModal] = useState(false);
+  const [editingAnnexure, setEditingAnnexure] = useState<Annexure | null>(null);
   const { isSuperAdmin } = useAuth();
 
   useEffect(() => {
@@ -67,10 +76,17 @@ export default function SectionPage() {
     }
 
     try {
-      await createAnnexure(params.id, name);
-      toast.success("Annexure added");
+      if (editingAnnexure) {
+        await updateAnnexure(editingAnnexure.id, name.trim());
+        toast.success("Annexure updated");
+      } else {
+        await createAnnexure(params.id, name.trim());
+        toast.success("Annexure added");
+      }
+
+      setEditingAnnexure(null);
     } catch {
-      toast.error("Failed to add annexure");
+      toast.error(editingAnnexure ? "Failed to update annexure" : "Failed to add annexure");
     }
   };
 
@@ -91,6 +107,24 @@ export default function SectionPage() {
     }
   };
 
+  const handleDeleteAnnexure = async (annexure: Annexure) => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can delete annexures");
+      return;
+    }
+
+    if (!window.confirm(`Delete annexure \"${annexure.name}\"? This will remove its related data too.`)) {
+      return;
+    }
+
+    try {
+      await deleteAnnexure(annexure.id);
+      toast.success("Annexure deleted");
+    } catch {
+      toast.error("Unable to delete annexure");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border bg-white/85 p-5 shadow-sm backdrop-blur">
@@ -102,7 +136,12 @@ export default function SectionPage() {
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-semibold">Annexures</h3>
           {isSuperAdmin && (
-            <Button onClick={() => setOpenModal(true)}>
+            <Button
+              onClick={() => {
+                setEditingAnnexure(null);
+                setOpenModal(true);
+              }}
+            >
               <Plus className="mr-2 size-4" />
               Add Annexure
             </Button>
@@ -134,6 +173,24 @@ export default function SectionPage() {
                       <Button size="sm" onClick={() => handleToggleAnnexure(annexure)}>
                         {annexure.status === "disabled" ? "Enable" : "Disable"}
                       </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                          <MoreHorizontal className="size-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditingAnnexure(annexure);
+                              setOpenModal(true);
+                            }}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem variant="destructive" onClick={() => handleDeleteAnnexure(annexure)}>
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </>
                   )}
                 </CardFooter>
@@ -149,10 +206,17 @@ export default function SectionPage() {
 
       <AddModal
         open={openModal}
-        onOpenChange={setOpenModal}
-        title="Add Annexure"
+        onOpenChange={(open) => {
+          setOpenModal(open);
+          if (!open) {
+            setEditingAnnexure(null);
+          }
+        }}
+        title={editingAnnexure ? "Edit Annexure" : "Add Annexure"}
         label="Annexure Name"
         placeholder="For example: Annexure 1"
+        initialValue={editingAnnexure?.name}
+        submitLabel={editingAnnexure ? "Update" : "Save"}
         onSubmit={handleCreateAnnexure}
       />
     </div>

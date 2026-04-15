@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { Download, FileSpreadsheet, Plus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TableColumnFilter, type ColumnFilterOption } from "@/components/common/table-column-filter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,6 +22,7 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { useAuth } from "@/components/providers/auth-provider";
 import { storage } from "@/lib/firebase";
 import {
+  appendLogRowByParentRow,
   createAttachment,
   createContact,
   getAnnexureById,
@@ -61,6 +63,29 @@ const createList = (value: string) => {
   return items.length > 0 ? items : [""];
 };
 
+const mergeUniqueFiles = (existing: File[], incoming: File[]) => {
+  const seen = new Set(existing.map((file) => `${file.name}-${file.size}-${file.lastModified}`));
+  const merged = [...existing];
+
+  incoming.forEach((file) => {
+    const key = `${file.name}-${file.size}-${file.lastModified}`;
+    if (!seen.has(key)) {
+      merged.push(file);
+      seen.add(key);
+    }
+  });
+
+  return merged;
+};
+
+const getNow = () => {
+  const now = new Date();
+  return {
+    date: now.toISOString().slice(0, 10),
+    time: now.toTimeString().slice(0, 5),
+  };
+};
+
 const getStorageUploadErrorMessage = (error: unknown) => {
   if (!error || typeof error !== "object" || !("code" in error)) {
     return "Upload failed. Check Firebase Storage setup and bucket name.";
@@ -87,7 +112,7 @@ export default function AnnexurePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const annexureId = params.id;
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, user } = useAuth();
 
   const [annexure, setAnnexure] = useState<Annexure | null>(null);
   const [attachments, setAttachments] = useState<AttachmentDoc[]>([]);
@@ -117,6 +142,25 @@ export default function AnnexurePage() {
   const [rowAttachments, setRowAttachments] = useState<string[]>([]);
   const [rowAttachmentFiles, setRowAttachmentFiles] = useState<File[]>([]);
   const [concernedTeamMembers, setConcernedTeamMembers] = useState<string[]>([""]);
+  const [mainTableFilters, setMainTableFilters] = useState({
+    requirements: null as string[] | null,
+    currentStatus: null as string[] | null,
+    attachment: null as string[] | null,
+    members: null as string[] | null,
+    latestRemark: null as string[] | null,
+  });
+  const [attachmentTableFilters, setAttachmentTableFilters] = useState({
+    name: null as string[] | null,
+    status: null as string[] | null,
+  });
+  const [contactTableFilters, setContactTableFilters] = useState({
+    name: null as string[] | null,
+    email: null as string[] | null,
+    number: null as string[] | null,
+    status: null as string[] | null,
+  });
+  const attachmentPickerRef = useRef<HTMLInputElement | null>(null);
+  const rowAttachmentPickerRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -166,7 +210,7 @@ export default function AnnexurePage() {
 
   const attachmentLabel = useMemo(() => {
     if (attachmentFiles.length === 0) {
-      return "Select Excel file";
+      return "No files selected yet";
     }
 
     if (attachmentFiles.length === 1) {
@@ -175,6 +219,145 @@ export default function AnnexurePage() {
 
     return `${attachmentFiles.length} files selected`;
   }, [attachmentFiles]);
+
+  const mainTableFilterOptions = useMemo(() => {
+    const buildOptions = (values: string[]): ColumnFilterOption[] => {
+      const counts = values.reduce<Record<string, number>>((acc, value) => {
+        acc[value] = (acc[value] ?? 0) + 1;
+        return acc;
+      }, {});
+
+      return Object.entries(counts)
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => a.value.localeCompare(b.value));
+    };
+
+    return {
+      requirements: buildOptions(rows.map((row) => row.requirements || "-")),
+      currentStatus: buildOptions(rows.map((row) => row.currentStatus || "-")),
+      attachment: buildOptions(rows.map((row) => row.attachment || "-")),
+      members: buildOptions(rows.map((row) => row.concernedTeamMembers || "-")),
+      latestRemark: buildOptions(rows.map((row) => row.latestRemark || "-")),
+    };
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (mainTableFilters.requirements && !mainTableFilters.requirements.includes(row.requirements || "-")) {
+        return false;
+      }
+
+      if (mainTableFilters.currentStatus && !mainTableFilters.currentStatus.includes(row.currentStatus || "-")) {
+        return false;
+      }
+
+      if (mainTableFilters.attachment && !mainTableFilters.attachment.includes(row.attachment || "-")) {
+        return false;
+      }
+
+      if (mainTableFilters.members && !mainTableFilters.members.includes(row.concernedTeamMembers || "-")) {
+        return false;
+      }
+
+      if (mainTableFilters.latestRemark && !mainTableFilters.latestRemark.includes(row.latestRemark || "-")) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [mainTableFilters, rows]);
+
+  const attachmentFilterOptions = useMemo(() => {
+    const buildOptions = (values: string[]): ColumnFilterOption[] => {
+      const counts = values.reduce<Record<string, number>>((acc, value) => {
+        acc[value] = (acc[value] ?? 0) + 1;
+        return acc;
+      }, {});
+
+      return Object.entries(counts)
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => a.value.localeCompare(b.value));
+    };
+
+    return {
+      name: buildOptions(attachments.map((item) => item.name || "-")),
+      status: buildOptions(attachments.map((item) => item.status)),
+    };
+  }, [attachments]);
+
+  const filteredAttachments = useMemo(() => {
+    return attachments.filter((item) => {
+      if (attachmentTableFilters.name && !attachmentTableFilters.name.includes(item.name || "-")) {
+        return false;
+      }
+
+      if (attachmentTableFilters.status && !attachmentTableFilters.status.includes(item.status)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [attachmentTableFilters, attachments]);
+
+  const contactFilterOptions = useMemo(() => {
+    const buildOptions = (values: string[]): ColumnFilterOption[] => {
+      const counts = values.reduce<Record<string, number>>((acc, value) => {
+        acc[value] = (acc[value] ?? 0) + 1;
+        return acc;
+      }, {});
+
+      return Object.entries(counts)
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => a.value.localeCompare(b.value));
+    };
+
+    return {
+      name: buildOptions(contacts.map((item) => item.name || "-")),
+      email: buildOptions(contacts.map((item) => item.email || "-")),
+      number: buildOptions(contacts.map((item) => item.number || "-")),
+      status: buildOptions(contacts.map((item) => item.status)),
+    };
+  }, [contacts]);
+
+  const filteredContacts = useMemo(() => {
+    return contacts.filter((item) => {
+      if (contactTableFilters.name && !contactTableFilters.name.includes(item.name || "-")) {
+        return false;
+      }
+
+      if (contactTableFilters.email && !contactTableFilters.email.includes(item.email || "-")) {
+        return false;
+      }
+
+      if (contactTableFilters.number && !contactTableFilters.number.includes(item.number || "-")) {
+        return false;
+      }
+
+      if (contactTableFilters.status && !contactTableFilters.status.includes(item.status)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [contactTableFilters, contacts]);
+
+  const handleAddAttachmentFiles = (fileList: FileList | null) => {
+    const selected = Array.from(fileList ?? []);
+    if (selected.length === 0) {
+      return;
+    }
+
+    setAttachmentFiles((previous) => mergeUniqueFiles(previous, selected));
+  };
+
+  const handleAddRowAttachmentFiles = (fileList: FileList | null) => {
+    const selected = Array.from(fileList ?? []);
+    if (selected.length === 0) {
+      return;
+    }
+
+    setRowAttachmentFiles((previous) => mergeUniqueFiles(previous, selected));
+  };
 
   const persistRows = async (nextRows: AnnexureTableRow[]) => {
     await saveAnnexureStatusRows(annexureId, nextRows);
@@ -221,7 +404,7 @@ export default function AnnexurePage() {
     }
 
     if (attachmentFiles.length === 0) {
-      toast.error("Please select an Excel file");
+      toast.error("Please select one or more attachment files");
       return;
     }
 
@@ -368,6 +551,24 @@ export default function AnnexurePage() {
 
     try {
       await persistRows(nextRows);
+
+      if (!editingRow) {
+        try {
+          const now = getNow();
+          await appendLogRowByParentRow(updatedRow.id, {
+            id: crypto.randomUUID(),
+            sNo: "1",
+            date: now.date,
+            time: now.time,
+            username: user?.displayName || user?.email || "Unknown user",
+            status: "not started",
+            remark: `Created annexure row: ${requirements.trim()}`,
+          });
+        } catch {
+          toast.error("Row saved, but the comment log could not be created");
+        }
+      }
+
       setRequirements("");
       setRowAttachments([]);
       setRowAttachmentFiles([]);
@@ -447,29 +648,89 @@ export default function AnnexurePage() {
         <CardContent>
           <div className="overflow-x-auto">
             <Table className="min-w-280 table-fixed">
-              <TableHeader className="bg-slate-200">
-                <TableRow className="border-slate-300 hover:bg-slate-200">
+              <TableHeader className="bg-gray-400">
+                <TableRow className="border-slate-300 hover:bg-gray-300">
                   <TableHead className="w-16 text-center text-slate-900">S No.</TableHead>
-                  <TableHead className="w-120 text-center text-slate-900">Requirements</TableHead>
-                  <TableHead className="w-44 text-center text-slate-900">Current Status</TableHead>
-                  <TableHead className="w-64 text-center text-slate-900">Attachment</TableHead>
-                  <TableHead className="w-72 text-center text-slate-900">Concerned Team Member(s)</TableHead>
-                  <TableHead className="w-176 text-center text-slate-900">Latest Remark</TableHead>
+                  <TableHead className="w-120 text-center text-slate-900">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Requirements</span>
+                      <TableColumnFilter
+                        title="Requirements"
+                        options={mainTableFilterOptions.requirements}
+                        selectedValues={mainTableFilters.requirements}
+                        onApply={(values) =>
+                          setMainTableFilters((previous) => ({ ...previous, requirements: values }))
+                        }
+                      />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-44 text-center text-slate-900">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Current Status</span>
+                      <TableColumnFilter
+                        title="Current Status"
+                        options={mainTableFilterOptions.currentStatus}
+                        selectedValues={mainTableFilters.currentStatus}
+                        onApply={(values) =>
+                          setMainTableFilters((previous) => ({ ...previous, currentStatus: values }))
+                        }
+                      />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-64 text-center text-slate-900">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Attachment</span>
+                      <TableColumnFilter
+                        title="Attachment"
+                        options={mainTableFilterOptions.attachment}
+                        selectedValues={mainTableFilters.attachment}
+                        onApply={(values) =>
+                          setMainTableFilters((previous) => ({ ...previous, attachment: values }))
+                        }
+                      />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-72 text-center text-slate-900">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Concerned Team Member(s)</span>
+                      <TableColumnFilter
+                        title="Concerned Team Member(s)"
+                        options={mainTableFilterOptions.members}
+                        selectedValues={mainTableFilters.members}
+                        onApply={(values) =>
+                          setMainTableFilters((previous) => ({ ...previous, members: values }))
+                        }
+                      />
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-176 text-center text-slate-900">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Latest Remark</span>
+                      <TableColumnFilter
+                        title="Latest Remark"
+                        options={mainTableFilterOptions.latestRemark}
+                        selectedValues={mainTableFilters.latestRemark}
+                        onApply={(values) =>
+                          setMainTableFilters((previous) => ({ ...previous, latestRemark: values }))
+                        }
+                      />
+                    </div>
+                  </TableHead>
                   <TableHead className="w-28 text-center text-slate-900">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.length === 0 ? (
+                {filteredRows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-14 text-center text-muted-foreground">
-                      No rows in annexure table.
+                      No rows in annexure table for selected filters.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((row, index) => (
+                  filteredRows.map((row, index) => (
                     <TableRow
                       key={row.id}
-                      className="cursor-pointer border-slate-200 odd:bg-slate-50/80 even:bg-white hover:bg-slate-100"
+                      className="cursor-pointer border-slate-200 odd:bg-slate-50/80 even:bg-white hover:bg-yellow-100/80"
                       onClick={() => openLogTable(row)}
                     >
                       <TableCell className="text-center align-middle font-medium">{index + 1}</TableCell>
@@ -565,21 +826,45 @@ export default function AnnexurePage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>S No.</TableHead>
-                  <TableHead>Name</TableHead>
+                  <TableHead>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Name</span>
+                      <TableColumnFilter
+                        title="Attachment Name"
+                        options={attachmentFilterOptions.name}
+                        selectedValues={attachmentTableFilters.name}
+                        onApply={(values) =>
+                          setAttachmentTableFilters((previous) => ({ ...previous, name: values }))
+                        }
+                      />
+                    </div>
+                  </TableHead>
                   <TableHead>Download</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Status</span>
+                      <TableColumnFilter
+                        title="Attachment Status"
+                        options={attachmentFilterOptions.status}
+                        selectedValues={attachmentTableFilters.status}
+                        onApply={(values) =>
+                          setAttachmentTableFilters((previous) => ({ ...previous, status: values }))
+                        }
+                      />
+                    </div>
+                  </TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {attachments.length === 0 ? (
+                {filteredAttachments.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="h-14 text-center text-muted-foreground">
-                      No attachments uploaded yet.
+                      No attachments found for selected filters.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  attachments.map((item, index) => (
+                  filteredAttachments.map((item, index) => (
                     <TableRow key={item.id}>
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>
@@ -663,22 +948,70 @@ export default function AnnexurePage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>S No.</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Mail</TableHead>
-                  <TableHead>Number</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Name</span>
+                      <TableColumnFilter
+                        title="Contact Name"
+                        options={contactFilterOptions.name}
+                        selectedValues={contactTableFilters.name}
+                        onApply={(values) =>
+                          setContactTableFilters((previous) => ({ ...previous, name: values }))
+                        }
+                      />
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Mail</span>
+                      <TableColumnFilter
+                        title="Contact Mail"
+                        options={contactFilterOptions.email}
+                        selectedValues={contactTableFilters.email}
+                        onApply={(values) =>
+                          setContactTableFilters((previous) => ({ ...previous, email: values }))
+                        }
+                      />
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Number</span>
+                      <TableColumnFilter
+                        title="Contact Number"
+                        options={contactFilterOptions.number}
+                        selectedValues={contactTableFilters.number}
+                        onApply={(values) =>
+                          setContactTableFilters((previous) => ({ ...previous, number: values }))
+                        }
+                      />
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Status</span>
+                      <TableColumnFilter
+                        title="Contact Status"
+                        options={contactFilterOptions.status}
+                        selectedValues={contactTableFilters.status}
+                        onApply={(values) =>
+                          setContactTableFilters((previous) => ({ ...previous, status: values }))
+                        }
+                      />
+                    </div>
+                  </TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {contacts.length === 0 ? (
+                {filteredContacts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="h-14 text-center text-muted-foreground">
-                      No contacts added yet.
+                      No contacts found for selected filters.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  contacts.map((item, index) => (
+                  filteredContacts.map((item, index) => (
                     <TableRow key={item.id}>
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>
@@ -743,15 +1076,59 @@ export default function AnnexurePage() {
       <Dialog open={attachmentModalOpen} onOpenChange={setAttachmentModalOpen}>
         <DialogContent className="rounded-2xl sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Upload Excel Attachment</DialogTitle>
+            <DialogTitle>Upload Attachments</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Input
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              multiple
-              onChange={(e) => setAttachmentFiles(Array.from(e.target.files ?? []))}
-            />
+            <div className="rounded-xl border bg-muted/20 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">Upload file(s)</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => attachmentPickerRef.current?.click()}
+                >
+                  Add Files
+                </Button>
+              </div>
+              <input
+                ref={attachmentPickerRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  handleAddAttachmentFiles(e.target.files);
+                  e.currentTarget.value = "";
+                }}
+              />
+              {attachmentFiles.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {attachmentFiles.map((file, index) => (
+                    <span
+                      key={`${file.name}-${file.lastModified}-${index}`}
+                      className="inline-flex items-center gap-2 rounded-full border border-sky-300 bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-900"
+                      title={file.name}
+                    >
+                      <span className="max-w-52 truncate">{file.name}</span>
+                      <button
+                        type="button"
+                        className="rounded px-1 text-[10px] leading-none hover:bg-sky-200"
+                        onClick={() =>
+                          setAttachmentFiles((previous) =>
+                            previous.filter((_, itemIndex) => itemIndex !== index),
+                          )
+                        }
+                      >
+                        x
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">No files added yet.</p>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">{attachmentLabel}</p>
             <Button onClick={handleCreateAttachment} className="w-full">
               Upload and Save All
@@ -840,6 +1217,14 @@ export default function AnnexurePage() {
             <div className="space-y-2 rounded-xl border bg-muted/20 p-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium">Attachment(s)</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => rowAttachmentPickerRef.current?.click()}
+                >
+                  Add Files
+                </Button>
               </div>
               {rowAttachments.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
@@ -865,16 +1250,45 @@ export default function AnnexurePage() {
                 <p className="text-xs text-muted-foreground">No attachments linked to this row yet.</p>
               )}
               <div className="space-y-2">
-                <Input
+                <input
+                  ref={rowAttachmentPickerRef}
                   type="file"
                   accept=".xlsx,.xls,.csv"
                   multiple
-                  onChange={(e) => setRowAttachmentFiles(Array.from(e.target.files ?? []))}
+                  className="hidden"
+                  onChange={(e) => {
+                    handleAddRowAttachmentFiles(e.target.files);
+                    e.currentTarget.value = "";
+                  }}
                 />
                 {rowAttachmentFiles.length > 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    {rowAttachmentFiles.length} file(s) will upload to Firebase when you save this row.
-                  </p>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {rowAttachmentFiles.map((file, index) => (
+                        <span
+                          key={`${file.name}-${file.lastModified}-${index}`}
+                          className="inline-flex items-center gap-2 rounded-full border border-sky-300 bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-900"
+                          title={file.name}
+                        >
+                          <span className="max-w-52 truncate">{file.name}</span>
+                          <button
+                            type="button"
+                            className="rounded px-1 text-[10px] leading-none hover:bg-sky-200"
+                            onClick={() =>
+                              setRowAttachmentFiles((previous) =>
+                                previous.filter((_, itemIndex) => itemIndex !== index),
+                              )
+                            }
+                          >
+                            x
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {rowAttachmentFiles.length} file(s) will upload to Firebase when you save this row.
+                    </p>
+                  </div>
                 ) : null}
               </div>
             </div>

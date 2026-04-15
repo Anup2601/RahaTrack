@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,8 @@ interface AddModalProps {
   title: string;
   label: string;
   placeholder: string;
+  initialValue?: string;
+  submitLabel?: string;
   onSubmit: (name: string) => Promise<void>;
 }
 
@@ -30,13 +32,21 @@ export function AddModal({
   title,
   label,
   placeholder,
+  initialValue = "",
+  submitLabel = "Save",
   onSubmit,
 }: AddModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "" },
+    defaultValues: { name: initialValue },
   });
+
+  useEffect(() => {
+    if (open) {
+      form.reset({ name: initialValue });
+    }
+  }, [form, initialValue, open]);
 
   const handleSubmit = async (values: FormValues) => {
     setSubmitting(true);
@@ -64,7 +74,7 @@ export function AddModal({
             )}
           </div>
           <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? "Saving..." : "Save"}
+            {submitting ? "Saving..." : submitLabel}
           </Button>
         </form>
       </DialogContent>
