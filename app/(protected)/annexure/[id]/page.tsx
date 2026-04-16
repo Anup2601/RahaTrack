@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { Download, FileSpreadsheet, Plus, Users } from "lucide-react";
+import { Download, FileSpreadsheet, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,7 @@ import {
   appendLogRowByParentRow,
   createAttachment,
   createContact,
+  deleteNestedTableByParentRow,
   getAnnexureById,
   getAnnexureStatusRows,
   saveAnnexureStatusRows,
@@ -613,6 +614,27 @@ export default function AnnexurePage() {
     router.push(`/table/${row.id}`);
   };
 
+  const handleDeleteRow = async (row: AnnexureTableRow) => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can delete rows");
+      return;
+    }
+
+    if (!window.confirm(`Delete row "${row.requirements}"? This will remove its comment log too.`)) {
+      return;
+    }
+
+    try {
+      const nextRows = rows.filter((item) => item.id !== row.id);
+      await saveAnnexureStatusRows(annexureId, nextRows);
+      await deleteNestedTableByParentRow(row.id);
+      setRows(nextRows);
+      toast.success("Row deleted");
+    } catch {
+      toast.error("Unable to delete row");
+    }
+  };
+
   if (loading) {
     return <p className="text-sm text-muted-foreground">Loading annexure details...</p>;
   }
@@ -785,20 +807,36 @@ export default function AnnexurePage() {
                         </p>
                       </TableCell>
                       <TableCell className="text-center align-middle">
-                        {isSuperAdmin ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openRowEditor(row);
-                            }}
-                          >
-                            Update
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">View</span>
-                        )}
+                        <div className="inline-flex items-center gap-1">
+                          {isSuperAdmin ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openRowEditor(row);
+                                }}
+                              >
+                                <Pencil className="mr-2 size-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleDeleteRow(row);
+                                }}
+                              >
+                                <Trash2 className="mr-2 size-4" />
+                              
+                              </Button>
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">View</span>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

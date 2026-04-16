@@ -22,6 +22,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import {
   createAttachment,
   deleteAttachment,
+  deleteLogRowByParentRow,
   getAnnexureContextByRowId,
   getAttachmentsByAnnexure,
   getLogRowsByParentRow,
@@ -354,6 +355,25 @@ export default function TableLogPage() {
     }
   };
 
+  const handleDeleteLogRow = async (row: LogRow) => {
+    if (!isSuperAdmin) {
+      toast.error("Only superadmin can delete comments");
+      return;
+    }
+
+    if (!window.confirm(`Delete comment from "${row.username}"?`)) {
+      return;
+    }
+
+    try {
+      await deleteLogRowByParentRow(parentRowId, row.id);
+      setRows((previous) => previous.filter((item) => item.id !== row.id));
+      toast.success("Comment deleted");
+    } catch {
+      toast.error("Failed to delete comment");
+    }
+  };
+
   const handleDeleteAttachment = async (item: AttachmentDoc) => {
     if (!isSuperAdmin) {
       toast.error("Only superadmin can delete attachments");
@@ -485,12 +505,13 @@ export default function TableLogPage() {
                         />
                       </div>
                     </TableHead>
+                    <TableHead className="w-28 text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredLogRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="h-14 text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="h-14 text-center text-muted-foreground">
                         No comments found for selected filters.
                       </TableCell>
                     </TableRow>
@@ -505,6 +526,22 @@ export default function TableLogPage() {
                           <p className="mx-auto max-w-176 text-left  whitespace-normal wrap-break-word leading-6" title={row.remark || "-"}>
                             {row.remark || "-"}
                           </p>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isSuperAdmin ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              title="Delete"
+                              aria-label={`Delete comment ${row.sNo}`}
+                              onClick={() => handleDeleteLogRow(row)}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">View</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))

@@ -394,6 +394,15 @@ export default function DashboardPage() {
         { width: 30 },
       ];
 
+      const applyFillToUsedCells = (row: any, fill: any, font?: any) => {
+        row.eachCell({ includeEmpty: false }, (cell: any) => {
+          cell.fill = fill;
+          if (font) {
+            cell.font = font;
+          }
+        });
+      };
+
       const attachmentLookup = new Map<string, Map<string, string>>();
       const annexureList = sectionSummaries.flatMap((item) => item.sectionAnnexures);
 
@@ -415,21 +424,19 @@ export default function DashboardPage() {
       );
 
       const headerRow = worksheet.addRow(["S.No.", "Particulars", "Attachment", "Spoke/Team Details", reportDate]);
-      headerRow.font = { bold: true, color: { argb: "FF1F1F1F" } };
-      headerRow.fill = {
+      applyFillToUsedCells(headerRow, {
         type: "pattern",
         pattern: "solid",
         fgColor: { argb: "FFFFB066" },
-      };
+      }, { bold: true, color: { argb: "FF1F1F1F" } });
 
       sectionSummaries.forEach(({ section, sectionAnnexures }) => {
         const sectionRow = worksheet.addRow(["", `Section - ${section.name}`, "", "", ""]);
-        sectionRow.font = { bold: true, color: { argb: "FF10263D" } };
-        sectionRow.fill = {
+        applyFillToUsedCells(sectionRow, {
           type: "pattern",
           pattern: "solid",
           fgColor: { argb: "FFB7D6F3" },
-        };
+        }, { bold: true, color: { argb: "FF10263D" } });
 
         if (sectionAnnexures.length === 0) {
           worksheet.addRow(["", "No annexure available", "", "", ""]);
@@ -438,12 +445,11 @@ export default function DashboardPage() {
 
         sectionAnnexures.forEach((annexure) => {
           const annexureRow = worksheet.addRow(["", `ANNEXURE - ${annexure.name}`, "", "", ""]);
-          annexureRow.font = { bold: true, color: { argb: "FF2D2D2D" } };
-          annexureRow.fill = {
+          applyFillToUsedCells(annexureRow, {
             type: "pattern",
             pattern: "solid",
             fgColor: { argb: "FFD9D9D9" },
-          };
+          }, { bold: true, color: { argb: "FF2D2D2D" } });
 
           if (annexure.rows.length === 0) {
             worksheet.addRow(["", "No table rows available", "", "", ""]);

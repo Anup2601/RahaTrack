@@ -181,18 +181,25 @@ export default function DashboardPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {filteredSections.map((section) => (
-              <Card key={section.id} className="rounded-2xl border bg-white/90 shadow-sm transition hover:shadow-md">
-                <CardHeader className="flex flex-row items-start justify-between space-y-0">
-                  <div>
+              <Card
+                key={section.id}
+                className="h-full min-h-56 rounded-2xl border bg-white/90 shadow-sm transition hover:shadow-md"
+              >
+                <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Section</p>
-                    <CardTitle className="mt-1 text-lg">{section.name}</CardTitle>
-                    <CardDescription className="mt-2 line-clamp-2">
+                    <CardTitle className="mt-1 line-clamp-2 text-lg wrap-anywhere">
+                      {section.name}
+                    </CardTitle>
+                    <CardDescription className="mt-2 line-clamp-2 wrap-anywhere">
                       {section.description ?? "No description provided."}
                     </CardDescription>
                   </div>
-                  <StatusBadge status={section.status} />
+                  <div className="shrink-0">
+                    <StatusBadge status={section.status} />
+                  </div>
                 </CardHeader>
-                <CardFooter className="flex flex-wrap gap-2">
+                <CardFooter className="mt-auto flex flex-wrap gap-2">
                   <Link
                     href={`/section/${section.id}`}
                     className={cn(buttonVariants({ size: "sm", variant: "outline" }))}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FolderKanban, ShieldUser } from "lucide-react";
+import { FolderKanban, LayoutDashboard, Sheet, ShieldUser } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -21,6 +21,11 @@ export function Sidebar() {
       label: "Sections",
       href: "/section",
       icon: FolderKanban,
+    },
+    {
+      label: "Annexure Status",
+      href: "/annexure-status",
+      icon: Sheet,
     },
     ...(isSuperAdmin
       ? [

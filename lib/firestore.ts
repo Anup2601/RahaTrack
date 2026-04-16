@@ -19,6 +19,7 @@ import {
   AnnexureRowStatus,
   Annexure,
   AnnexureTableRow,
+  AnnexureStatusRecord,
   AppUser,
   AttachmentDoc,
   ContactDoc,
@@ -50,6 +51,7 @@ const usersCollection = collection(db, "users");
 const sectionsCollection = collection(db, "sections");
 const annexuresCollection = collection(db, "annexures");
 const tablesCollection = collection(db, "tables");
+const annexureStatusCollection = collection(db, "annexureStatus");
 const nestedTablesCollection = collection(db, "nestedTables");
 const attachmentsCollection = collection(db, "attachments");
 const contactsCollection = collection(db, "contacts");
@@ -516,6 +518,17 @@ export const saveNestedTableData = async (
   });
 };
 
+export const deleteNestedTableByParentRow = async (parentRowId: string) => {
+  const q = query(nestedTablesCollection, where("parentRowId", "==", parentRowId), limit(1));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return;
+  }
+
+  await deleteDoc(snapshot.docs[0].ref);
+};
+
 export const subscribeAttachmentsByAnnexure = (
   annexureId: string,
   onData: (data: AttachmentDoc[]) => void,
@@ -684,6 +697,57 @@ export const saveAnnexureStatusRows = async (
   );
 };
 
+export const subscribeAnnexureStatusRecords = (
+  onData: (data: AnnexureStatusRecord[]) => void,
+  onError?: (error: Error) => void,
+) => {
+  const q = query(annexureStatusCollection, orderBy("order", "asc"));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items = snapshot.docs.map((item) => {
+        const raw = item.data();
+
+        return {
+          id: item.id,
+          name: String(raw.name ?? ""),
+          percentage: Number(raw.percentage ?? 0),
+          order: Number(raw.order ?? 0),
+          status: (raw.status as EntityStatus) ?? "active",
+          createdAt: toIsoDate(raw.createdAt),
+          updatedAt: toIsoDate(raw.updatedAt),
+        } as AnnexureStatusRecord;
+      });
+
+      onData(items);
+    },
+    (error) => {
+      console.error("subscribeAnnexureStatusRecords listener error:", error);
+      onError?.(error);
+    },
+  );
+};
+
+export const saveAnnexureStatusRecord = async (
+  id: string,
+  payload: {
+    name: string;
+    percentage: number;
+    order: number;
+  },
+) => {
+  await setDoc(
+    doc(annexureStatusCollection, id),
+    {
+      ...payload,
+      status: "active" as EntityStatus,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+};
+
 export const getAnnexureContextByRowId = async (
   parentRowId: string,
 ): Promise<{ annexureId: string; attachmentNames: string[] } | null> => {
@@ -791,4 +855,15 @@ export const appendLogRowByParentRow = async (parentRowId: string, row: LogRow) 
   };
 
   await saveLogRowsByParentRow(parentRowId, [...existingRows, nextRow]);
+};
+
+export const deleteLogRowByParentRow = async (parentRowId: string, rowId: string) => {
+  const existingRows = await getLogRowsByParentRow(parentRowId);
+  const nextRows = existingRows.filter((row) => row.id !== rowId);
+
+  if (nextRows.length === existingRows.length) {
+    return;
+  }
+
+  await saveLogRowsByParentRow(parentRowId, nextRows);
 };

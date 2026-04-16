@@ -80,6 +80,16 @@ export interface AnnexureTableRow {
   status?: EntityStatus;
 }
 
+export interface AnnexureStatusRecord {
+  id: string;
+  name: string;
+  percentage: number;
+  order: number;
+  status?: EntityStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface LogRow {
   id: string;
   sNo: string;
