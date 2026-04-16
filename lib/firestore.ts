@@ -203,20 +203,31 @@ export const subscribeSections = (
   onData: (data: Section[]) => void,
   onError?: (error: Error) => void,
 ) => {
-  const q = query(sectionsCollection, orderBy("createdAt", "asc"));
+  const q = query(sectionsCollection);
   return onSnapshot(
     q,
     (snapshot) => {
-      const sections = snapshot.docs.map((item) => {
-        const data = item.data();
-        return {
-          id: item.id,
-          name: data.name,
-          description: data.description ? String(data.description) : undefined,
-          status: data.status,
-          createdAt: toIsoDate(data.createdAt),
-        } as Section;
-      });
+      const sections = snapshot.docs
+        .map((item) => {
+          const data = item.data();
+          return {
+            id: item.id,
+            name: data.name,
+            description: data.description ? String(data.description) : undefined,
+            status: data.status,
+            createdAt: toIsoDate(data.createdAt),
+          } as Section;
+        })
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+          if (aTime === bTime) {
+            return a.name.localeCompare(b.name);
+          }
+
+          return aTime - bTime;
+        });
 
       onData(sections);
     },
@@ -313,7 +324,7 @@ export const subscribeAllAnnexures = (
   onData: (data: Annexure[]) => void,
   onError?: (error: Error) => void,
 ) => {
-  const q = query(annexuresCollection, orderBy("createdAt", "asc"));
+  const q = query(annexuresCollection);
 
   return onSnapshot(
     q,
@@ -625,8 +636,18 @@ export const updateContactStatus = async (id: string, status: EntityStatus) => {
 };
 
 export const getAnnexureStatusRows = async (annexureId: string): Promise<AnnexureTableRow[]> => {
-  const table = await getOrCreateTableByAnnexure(annexureId);
-  return table.rows.map((row) => {
+  const q = query(tablesCollection, where("annexureId", "==", annexureId), limit(1));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return [];
+  }
+
+  const tableDoc = snapshot.docs[0];
+  const data = tableDoc.data();
+  const rows = (data.rows ?? []) as DynamicRow[];
+
+  return rows.map((row) => {
     return {
       id: row.id,
       requirements: String(row.requirements ?? row.team ?? ""),

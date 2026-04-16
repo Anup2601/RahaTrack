@@ -648,10 +648,10 @@ export default function AnnexurePage() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table className="min-w-280 table-fixed rounded-full border-2">
+            <Table className="min-w-280 table-fixed rounded-full">
               <TableHeader className="bg-[#8a8a8a]">
                 <TableRow className="border-slate-300 hover:bg-[#8a8a8a]/20">
-                  <TableHead className="w-16 text-center text-white">S No.</TableHead>
+                  <TableHead className="w-12 text-center text-white">S No.</TableHead>
                   <TableHead className="w-140 text-center text-white">
                     <div className="flex items-center justify-between gap-2">
                       <span>Requirements</span>
@@ -665,7 +665,7 @@ export default function AnnexurePage() {
                       />
                     </div>
                   </TableHead>
-                  <TableHead className="w-44 text-center text-white">
+                  <TableHead className="w-45 text-center text-white">
                     <div className="flex items-center justify-between gap-2">
                       <span>Current Status</span>
                       <TableColumnFilter
@@ -678,7 +678,7 @@ export default function AnnexurePage() {
                       />
                     </div>
                   </TableHead>
-                  <TableHead className="w-64 text-center text-white">
+                  <TableHead className="w-44 text-center text-white">
                     <div className="flex items-center justify-between gap-2">
                       <span>Attachment</span>
                       <TableColumnFilter
@@ -691,9 +691,9 @@ export default function AnnexurePage() {
                       />
                     </div>
                   </TableHead>
-                  <TableHead className="w-72 text-center text-white">
+                  <TableHead className="w-52 text-center text-white">
                     <div className="flex items-center justify-between gap-2">
-                      <span>Concerned Team Member(s)</span>
+                      <span> Team Member(s)</span>
                       <TableColumnFilter
                         title="Concerned Team Member(s)"
                         options={mainTableFilterOptions.members}
@@ -704,7 +704,7 @@ export default function AnnexurePage() {
                       />
                     </div>
                   </TableHead>
-                  <TableHead className="w-120 text-center text-white">
+                  <TableHead className="w-102 text-center text-white">
                     <div className="flex items-center justify-between gap-2">
                       <span>Latest Remark</span>
                       <TableColumnFilter

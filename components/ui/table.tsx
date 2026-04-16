@@ -70,7 +70,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 border-x border-b border-border px-2 text-center align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0 [&>div]:relative [&>div]:flex [&>div]:items-center [&>div]:justify-center! [&>div]:px-8 [&>div>button[aria-label^='Filter']]:absolute [&>div>button[aria-label^='Filter']]:right-0 [&>div>span]:w-full [&>div>span]:text-center",
+        "h-10 border-x border-b border-border px-1 text-center align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0 [&>div]:relative [&>div]:flex [&>div]:items-center [&>div]:justify-center! [&>div]:px-8 [&>div>button[aria-label^='Filter']]:absolute [&>div>button[aria-label^='Filter']]:right-0 [&>div>span]:w-full [&>div>span]:text-center",
         className
       )}
       {...props}

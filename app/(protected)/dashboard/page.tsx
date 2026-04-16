@@ -218,7 +218,7 @@ export default function DashboardPage() {
       setLoadingRows(true);
 
       try {
-        const entries = await Promise.all(
+        const results = await Promise.allSettled(
           annexures.map(async (annexure) => {
             const rows = await getAnnexureStatusRows(annexure.id);
             return [annexure.id, rows] as const;
@@ -229,7 +229,20 @@ export default function DashboardPage() {
           return;
         }
 
+        const entries = results
+          .filter(
+            (
+              result,
+            ): result is PromiseFulfilledResult<readonly [string, AnnexureTableRow[]]> =>
+              result.status === "fulfilled",
+          )
+          .map((result) => result.value);
+
         setRowsByAnnexure(Object.fromEntries(entries));
+
+        if (entries.length < annexures.length) {
+          toast.error("Some annexure progress rows could not be loaded");
+        }
       } catch {
         if (!active) {
           return;

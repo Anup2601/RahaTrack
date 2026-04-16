@@ -136,10 +136,13 @@ export default function TableLogPage() {
 
   const scopedAttachments = useMemo(() => {
     if (rowAttachmentNames.length === 0) {
-      return [];
+      return attachments;
     }
 
-    const allowed = new Set(rowAttachmentNames.map((name) => name.trim().toLowerCase()).filter(Boolean));
+    const allowed = new Set(
+      rowAttachmentNames.map((name) => name.trim().toLowerCase()).filter(Boolean),
+    );
+
     return attachments.filter((item) => allowed.has(item.name.trim().toLowerCase()));
   }, [attachments, rowAttachmentNames]);
 
@@ -303,9 +306,8 @@ export default function TableLogPage() {
       });
 
       setRowAttachmentNames((previous) => {
-        const hasName = previous.some(
-          (name) => name.trim().toLowerCase() === finalName.trim().toLowerCase(),
-        );
+        const normalizedName = finalName.trim().toLowerCase();
+        const hasName = previous.some((name) => name.trim().toLowerCase() === normalizedName);
         return hasName ? previous : [...previous, finalName];
       });
 
@@ -416,6 +418,11 @@ export default function TableLogPage() {
                 <Plus className="mr-2 size-4" />
                 Add Comment
               </Button>
+            ) : activeTab === "attachments" && isSuperAdmin ? (
+              <Button onClick={openAddAttachment}>
+                <Plus className="mr-2 size-4" />
+                Add Attachment
+              </Button>
             ) : null}
           </div>
         </CardHeader>
@@ -425,8 +432,8 @@ export default function TableLogPage() {
               <Table className="min-w-225">
                 <TableHeader>
                   <TableRow className="bg-[#8a8a8a] border-slate-300 hover:bg-[#8a8a8a]/20">
-                    <TableHead>S No.</TableHead>
-                    <TableHead>
+                    <TableHead className="w-12">S No.</TableHead>
+                    <TableHead className="w-28">
                       <div className="flex items-center justify-between gap-2">
                         <span>Date</span>
                         <TableColumnFilter
@@ -439,7 +446,7 @@ export default function TableLogPage() {
                         />
                       </div>
                     </TableHead>
-                    <TableHead>
+                    <TableHead className="w-32">
                       <div className="flex items-center justify-between gap-2">
                         <span>Time</span>
                         <TableColumnFilter
@@ -452,7 +459,7 @@ export default function TableLogPage() {
                         />
                       </div>
                     </TableHead>
-                    <TableHead>
+                    <TableHead className="w-42">
                       <div className="flex items-center justify-between gap-2">
                         <span>Username</span>
                         <TableColumnFilter
@@ -495,7 +502,7 @@ export default function TableLogPage() {
                         <TableCell>{row.time}</TableCell>
                         <TableCell>{row.username}</TableCell>
                         <TableCell>
-                          <p className="max-w-90 wrap-break-word" title={row.remark || "-"}>
+                          <p className="mx-auto max-w-176 text-left  whitespace-normal wrap-break-word leading-6" title={row.remark || "-"}>
                             {row.remark || "-"}
                           </p>
                         </TableCell>
@@ -553,26 +560,18 @@ export default function TableLogPage() {
                             >
                               <Eye className="size-4" />
                             </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              title="Delete"
-                              aria-label={`Delete ${item.name}`}
-                              onClick={() => handleDeleteAttachment(item)}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              title="Add"
-                              aria-label={`Add for ${item.name}`}
-                              onClick={openAddAttachment}
-                            >
-                              <Plus className="size-4" />
-                            </Button>
+                            {isSuperAdmin ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                title="Delete"
+                                aria-label={`Delete ${item.name}`}
+                                onClick={() => handleDeleteAttachment(item)}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            ) : null}
                             {/* <Button
                               type="button"
                               variant="ghost"
