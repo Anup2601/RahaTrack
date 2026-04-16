@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, ClipboardList, Layers3, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ClipboardList, Download, Layers3, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/status-badge";
+import { Button } from "@/components/ui/button";
 import {
+  getAttachmentsByAnnexure,
   getAnnexureStatusRows,
   subscribeAllAnnexures,
   subscribeSections,
@@ -363,6 +365,182 @@ export default function DashboardPage() {
     }));
   }, [sectionSummaries]);
 
+  const handleDownloadExcel = async () => {
+    if (loading) {
+      toast.error("Please wait, dashboard data is still loading");
+      return;
+    }
+
+    if (sectionSummaries.length === 0) {
+      toast.error("No dashboard data available to export");
+      return;
+    }
+
+    try {
+      const ExcelJS = await import("exceljs");
+      const reportDate = new Intl.DateTimeFormat("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "2-digit",
+      }).format(new Date());
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Dashboard Report");
+      worksheet.columns = [
+        {  width: 8 },
+        {  width: 72 },
+        { width: 45 },
+        { width: 36 },
+        { width: 30 },
+      ];
+
+      const attachmentLookup = new Map<string, Map<string, string>>();
+      const annexureList = sectionSummaries.flatMap((item) => item.sectionAnnexures);
+
+      await Promise.all(
+        annexureList.map(async (annexure) => {
+          try {
+            const docs = await getAttachmentsByAnnexure(annexure.id);
+            const byName = new Map<string, string>();
+            docs.forEach((doc) => {
+              if (doc.name && doc.fileUrl) {
+                byName.set(doc.name.trim().toLowerCase(), doc.fileUrl);
+              }
+            });
+            attachmentLookup.set(annexure.id, byName);
+          } catch {
+            attachmentLookup.set(annexure.id, new Map());
+          }
+        }),
+      );
+
+      const headerRow = worksheet.addRow(["S.No.", "Particulars", "Attachment", "Spoke/Team Details", reportDate]);
+      headerRow.font = { bold: true, color: { argb: "FF1F1F1F" } };
+      headerRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFFFB066" },
+      };
+
+      sectionSummaries.forEach(({ section, sectionAnnexures }) => {
+        const sectionRow = worksheet.addRow(["", `Section - ${section.name}`, "", "", ""]);
+        sectionRow.font = { bold: true, color: { argb: "FF10263D" } };
+        sectionRow.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFB7D6F3" },
+        };
+
+        if (sectionAnnexures.length === 0) {
+          worksheet.addRow(["", "No annexure available", "", "", ""]);
+          return;
+        }
+
+        sectionAnnexures.forEach((annexure) => {
+          const annexureRow = worksheet.addRow(["", `ANNEXURE - ${annexure.name}`, "", "", ""]);
+          annexureRow.font = { bold: true, color: { argb: "FF2D2D2D" } };
+          annexureRow.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFD9D9D9" },
+          };
+
+          if (annexure.rows.length === 0) {
+            worksheet.addRow(["", "No table rows available", "", "", ""]);
+            return;
+          }
+
+          const exportedRows = annexure.rows.filter((row, index, rows) => {
+            const currentSignature = [
+              row.requirements,
+              row.attachment,
+              row.concernedTeamMembers,
+              row.currentStatus,
+              row.latestRemark,
+            ]
+              .map((value) => String(value ?? "").trim())
+              .join("|");
+
+            const previousRow = rows[index - 1];
+            if (!previousRow) {
+              return true;
+            }
+
+            const previousSignature = [
+              previousRow.requirements,
+              previousRow.attachment,
+              previousRow.concernedTeamMembers,
+              previousRow.currentStatus,
+              previousRow.latestRemark,
+            ]
+              .map((value) => String(value ?? "").trim())
+              .join("|");
+
+            return currentSignature !== previousSignature;
+          });
+
+          exportedRows.forEach((row, index) => {
+            const rowRef = worksheet.addRow([
+              index + 1,
+              row.requirements || "",
+              row.attachment || "",
+              row.concernedTeamMembers || "",
+              [row.currentStatus, row.latestRemark].filter(Boolean).join(" | "),
+            ]);
+
+            const attachmentNames = String(row.attachment ?? "")
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean);
+            const urlsByName = attachmentLookup.get(annexure.id) ?? new Map();
+            const firstLinkedName = attachmentNames.find((name) => urlsByName.has(name.toLowerCase()));
+
+            if (firstLinkedName) {
+              const link = urlsByName.get(firstLinkedName.toLowerCase());
+              if (link) {
+                rowRef.getCell(3).value = {
+                  text: row.attachment || firstLinkedName,
+                  hyperlink: link,
+                };
+                rowRef.getCell(3).font = {
+                  color: { argb: "FF0563C1" },
+                  underline: true,
+                };
+              }
+            }
+          });
+        });
+      });
+
+      worksheet.eachRow((row) => {
+        row.eachCell((cell) => {
+          cell.alignment = { vertical: "top", horizontal: "left", wrapText: true };
+          cell.border = {
+            top: { style: "thin", color: { argb: "FF000000" } },
+            left: { style: "thin", color: { argb: "FF000000" } },
+            bottom: { style: "thin", color: { argb: "FF000000" } },
+            right: { style: "thin", color: { argb: "FF000000" } },
+          };
+        });
+      });
+
+      const fileDate = new Date().toISOString().slice(0, 10);
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `dashboard-report-${fileDate}.xlsx`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success("Dashboard Excel downloaded");
+    } catch {
+      toast.error("Unable to download dashboard excel");
+    }
+  };
+
   return (
     <div
       className="space-y-6 rounded-[2rem] p-4 sm:p-6"
@@ -374,7 +552,17 @@ export default function DashboardPage() {
       }}
     >
       <section className="rounded-[1.4rem] border border-black/10 bg-linear-to-r from-[#8b8b8b] to-[#bdbdbd] px-6 py-4 shadow-[0_12px_24px_rgba(0,0,0,0.08)]">
-        <h2 className="text-center text-2xl font-black uppercase tracking-[0.16em] text-[#ffe600]">Dashboard</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-2xl font-black uppercase tracking-[0.16em] text-[#ffe600]">Dashboard</h2>
+          <Button
+            onClick={handleDownloadExcel}
+            disabled={loading}
+            className="rounded-xl bg-[#ffe600] text-black hover:bg-[#f1da00]"
+          >
+            <Download className="mr-2 size-4" />
+            Download Excel
+          </Button>
+        </div>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
