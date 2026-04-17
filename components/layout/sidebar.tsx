@@ -22,13 +22,13 @@ export function Sidebar() {
       href: "/section",
       icon: FolderKanban,
     },
-    {
-      label: "Annexure Status",
-      href: "/annexure-status",
-      icon: Sheet,
-    },
     ...(isSuperAdmin
       ? [
+          {
+            label: "Annexure Status",
+            href: "/annexure-status",
+            icon: Sheet,
+          },
           {
             label: "Users",
             href: "/users",

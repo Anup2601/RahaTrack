@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, PenLine } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,38 +15,8 @@ import {
 } from "@/lib/annexure-status";
 import { saveAnnexureStatusRecord, subscribeAnnexureStatusRecords } from "@/lib/firestore";
 import { AnnexureStatusRecord } from "@/lib/types";
-import { PolarAngleAxis, RadialBar, RadialBarChart, ResponsiveContainer } from "recharts";
 
 const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
-
-const toPercentLabel = (value: number) => `${Math.round(clampPercent(value))}%`;
-
-function GaugeCard({ item }: { item: AnnexureStatusDefinition & { percentage: number } }) {
-  const percent = clampPercent(item.percentage);
-
-  return (
-    <div className="rounded-[1.4rem] border border-black/10 bg-white p-4 shadow-[0_8px_20px_rgba(0,0,0,0.08)]">
-      <div className="mx-auto mb-2 h-40 w-full max-w-60">
-        <ResponsiveContainer>
-          <RadialBarChart
-            data={[{ name: item.label, value: percent }]}
-            innerRadius="72%"
-            outerRadius="98%"
-            startAngle={180}
-            endAngle={0}
-            cy="88%"
-          >
-            <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-            <RadialBar dataKey="value" background={{ fill: "#d7d7d7" }} cornerRadius={10} fill="#ffd200" />
-          </RadialBarChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="text-center text-xs uppercase tracking-[0.2em] text-muted-foreground">{item.label}</p>
-      <p className="mt-1 text-center text-sm font-semibold text-[#202020]">{item.title}</p>
-      <p className="mt-2 text-center text-3xl font-black text-[#1f1f1f]">{toPercentLabel(percent)}</p>
-    </div>
-  );
-}
 
 function StatusTable({
   mergedItems,
@@ -140,7 +111,7 @@ function StatusTable({
 }
 
 export default function AnnexureStatusPage() {
-  const [activeView, setActiveView] = useState<"dashboard" | "comment-log" | "attachment">("dashboard");
+  const { isSuperAdmin, loading: authLoading } = useAuth();
   const [records, setRecords] = useState<AnnexureStatusRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -229,14 +200,27 @@ export default function AnnexureStatusPage() {
     }
   };
 
-  const currentItems = useMemo(
-    () =>
-      mergedItems.map((item) => ({
-        ...item,
-        percentage: clampPercent(item.percentage),
-      })),
-    [mergedItems],
-  );
+  const currentItems = useMemo(() => {
+    return mergedItems.map((item) => ({
+      ...item,
+      percentage: clampPercent(item.percentage),
+    }));
+  }, [mergedItems]);
+
+  if (authLoading) {
+    return <p className="text-sm text-muted-foreground">Loading user access...</p>;
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <section className="rounded-[1.6rem] border border-black/10 bg-white/90 p-5 shadow-[0_8px_20px_rgba(0,0,0,0.08)] backdrop-blur">
+        <h2 className="text-xl font-semibold text-[#1f1f1f]">Access Restricted</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Annexure Status is visible only for superadmin users.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -247,78 +231,18 @@ export default function AnnexureStatusPage() {
         </p>
       </section>
 
-      {/* <div className="flex flex-wrap gap-2">
-        <Button variant={activeView === "dashboard" ? "default" : "outline"} onClick={() => setActiveView("dashboard")}>Dashboard</Button>
-        <Button variant={activeView === "comment-log" ? "default" : "outline"} onClick={() => setActiveView("comment-log")}>Comment Log</Button>
-        <Button variant={activeView === "attachment" ? "default" : "outline"} onClick={() => setActiveView("attachment")}>Attachment</Button>
-      </div> */}
-
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {currentItems.map((item) => (
-          <GaugeCard key={item.id} item={item} />
-        ))}
+      <section>
+        <StatusTable
+          mergedItems={currentItems}
+          loading={loading}
+          drafts={drafts}
+          editing={editing}
+          savingId={savingId}
+          onDraftChange={(id, value) => setDrafts((previous) => ({ ...previous, [id]: value }))}
+          onEdit={(id) => setEditing((previous) => ({ ...previous, [id]: true }))}
+          onSave={(item) => void handleSave(item)}
+        />
       </section>
-
-      {activeView === "dashboard" ? (
-        <section>
-          <StatusTable
-            mergedItems={currentItems}
-            loading={loading}
-            drafts={drafts}
-            editing={editing}
-            savingId={savingId}
-            onDraftChange={(id, value) => setDrafts((previous) => ({ ...previous, [id]: value }))}
-            onEdit={(id) => setEditing((previous) => ({ ...previous, [id]: true }))}
-            onSave={(item) => void handleSave(item)}
-          />
-        </section>
-      ) : null}
-
-      {activeView === "comment-log" ? (
-        <section className="space-y-4">
-          <Card className="rounded-[1.4rem] border border-black/10 bg-white shadow-[0_8px_20px_rgba(0,0,0,0.08)]">
-            <CardHeader>
-              <CardTitle>Comment Log View</CardTitle>
-              <CardDescription>This tab uses the same annexure status data in a compact table layout.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <StatusTable
-                mergedItems={currentItems}
-                loading={loading}
-                drafts={drafts}
-                editing={editing}
-                savingId={savingId}
-                onDraftChange={(id, value) => setDrafts((previous) => ({ ...previous, [id]: value }))}
-                onEdit={(id) => setEditing((previous) => ({ ...previous, [id]: true }))}
-                onSave={(item) => void handleSave(item)}
-              />
-            </CardContent>
-          </Card>
-        </section>
-      ) : null}
-
-      {activeView === "attachment" ? (
-        <section className="space-y-4">
-          <Card className="rounded-[1.4rem] border border-black/10 bg-white shadow-[0_8px_20px_rgba(0,0,0,0.08)]">
-            <CardHeader>
-              <CardTitle>Attachment View</CardTitle>
-              <CardDescription>The same percentage controls remain available here for quick switching.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <StatusTable
-                mergedItems={currentItems}
-                loading={loading}
-                drafts={drafts}
-                editing={editing}
-                savingId={savingId}
-                onDraftChange={(id, value) => setDrafts((previous) => ({ ...previous, [id]: value }))}
-                onEdit={(id) => setEditing((previous) => ({ ...previous, [id]: true }))}
-                onSave={(item) => void handleSave(item)}
-              />
-            </CardContent>
-          </Card>
-        </section>
-      ) : null}
     </div>
   );
 }

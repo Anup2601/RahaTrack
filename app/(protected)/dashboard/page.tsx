@@ -9,10 +9,12 @@ import { Button } from "@/components/ui/button";
 import {
   getAttachmentsByAnnexure,
   getAnnexureStatusRows,
+  subscribeAnnexureStatusRecords,
   subscribeAllAnnexures,
   subscribeSections,
 } from "@/lib/firestore";
-import { Annexure, AnnexureTableRow, Section } from "@/lib/types";
+import { ANNEXURE_STATUS_ITEMS } from "@/lib/annexure-status";
+import { Annexure, AnnexureStatusRecord, AnnexureTableRow, Section } from "@/lib/types";
 import {
   Bar,
   BarChart,
@@ -170,12 +172,15 @@ function PriorityList({
 }
 
 export default function DashboardPage() {
+  const [activeTab, setActiveTab] = useState<"dashboard" | "annexure-status-dashboard">("dashboard");
   const [sections, setSections] = useState<Section[]>([]);
   const [annexures, setAnnexures] = useState<Annexure[]>([]);
   const [rowsByAnnexure, setRowsByAnnexure] = useState<Record<string, AnnexureTableRow[]>>({});
+  const [annexureStatusRecords, setAnnexureStatusRecords] = useState<AnnexureStatusRecord[]>([]);
   const [loadingSections, setLoadingSections] = useState(true);
   const [loadingAnnexures, setLoadingAnnexures] = useState(true);
   const [loadingRows, setLoadingRows] = useState(true);
+  const [loadingAnnexureStatusRecords, setLoadingAnnexureStatusRecords] = useState(true);
 
   useEffect(() => {
     const unsubscribe = subscribeSections(
@@ -263,6 +268,21 @@ export default function DashboardPage() {
       active = false;
     };
   }, [annexures]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAnnexureStatusRecords(
+      (data) => {
+        setAnnexureStatusRecords(data);
+        setLoadingAnnexureStatusRecords(false);
+      },
+      () => {
+        setLoadingAnnexureStatusRecords(false);
+        toast.error("Unable to load annexure status dashboard");
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   const sectionNameById = useMemo(() => buildSectionNameMap(sections), [sections]);
 
@@ -364,6 +384,44 @@ export default function DashboardPage() {
       progress: item.progress,
     }));
   }, [sectionSummaries]);
+
+  const annexureStatusDashboardRows = useMemo(() => {
+    const byId = new Map(annexureStatusRecords.map((item) => [item.id, item] as const));
+
+    return ANNEXURE_STATUS_ITEMS.map((item) => {
+      const saved = byId.get(item.id);
+      const percentage = clampPercent(saved?.percentage ?? 0);
+
+      return {
+        ...item,
+        percentage,
+      };
+    });
+  }, [annexureStatusRecords]);
+
+  const getProgressColor = (percentage: number) => {
+    if (percentage < 40) {
+      return {
+        bar: "bg-red-500",
+        track: "bg-red-100",
+        text: "text-red-700",
+      };
+    }
+
+    if (percentage < 75) {
+      return {
+        bar: "bg-yellow-500",
+        track: "bg-yellow-100",
+        text: "text-yellow-700",
+      };
+    }
+
+    return {
+      bar: "bg-emerald-500",
+      track: "bg-emerald-100",
+      text: "text-emerald-700",
+    };
+  };
 
   const handleDownloadExcel = async () => {
     if (loading) {
@@ -571,6 +629,88 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      <section className="flex flex-wrap gap-2">
+        <Button
+          variant={activeTab === "dashboard" ? "default" : "outline"}
+          onClick={() => setActiveTab("dashboard")}
+          className={activeTab === "dashboard" ? "bg-[#ffe600] text-black hover:bg-[#f1da00]" : ""}
+        >
+          Dashboard
+        </Button>
+        <Button
+          variant={activeTab === "annexure-status-dashboard" ? "default" : "outline"}
+          onClick={() => setActiveTab("annexure-status-dashboard")}
+          className={activeTab === "annexure-status-dashboard" ? "bg-[#ffe600] text-black hover:bg-[#f1da00]" : ""}
+        >
+          Annexure Status Dashboard
+        </Button>
+      </section>
+
+      {activeTab === "annexure-status-dashboard" ? (
+        <section className="space-y-4">
+          <Card className="rounded-[1.6rem] border border-black/10 bg-white shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold text-[#222]">Annexure Status Dashboard</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Progress view based on saved percentage values from Annexure Status.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="min-w-225 table-fixed border-collapse">
+                  <thead className="bg-[#8a8a8a]">
+                    <tr>
+                      <th className="w-16 px-3 py-3 text-center text-sm font-semibold text-white">S No.</th>
+                      <th className="w-[60%] px-3 py-3 text-left text-sm font-semibold text-white">Annexure</th>
+                      <th className="w-72 px-3 py-3 text-left text-sm font-semibold text-white">Progress</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingAnnexureStatusRecords ? (
+                      <tr>
+                        <td colSpan={3} className="h-24 px-3 py-3 text-center text-sm text-muted-foreground">
+                          Loading annexure status dashboard...
+                        </td>
+                      </tr>
+                    ) : (
+                      annexureStatusDashboardRows.map((row, index) => {
+                        const tone = getProgressColor(row.percentage);
+
+                        return (
+                          <tr key={row.id} className="border-b border-slate-200 odd:bg-slate-50/80 even:bg-white">
+                            <td className="px-3 py-3 text-center text-sm font-medium text-[#1f1f1f]">{index + 1}</td>
+                            <td className="px-3 py-3">
+                              <div className="space-y-1">
+                                <p className="text-sm font-semibold text-[#1f1f1f]">{row.label}</p>
+                                <p className="text-sm text-muted-foreground">{row.title}</p>
+                              </div>
+                            </td>
+                            <td className="px-3 py-3">
+                              <div className="space-y-2">
+                                <div className={`h-3 w-full overflow-hidden rounded-full ${tone.track}`}>
+                                  <div
+                                    className={`h-full rounded-full transition-all ${tone.bar}`}
+                                    style={{ width: `${row.percentage}%` }}
+                                  />
+                                </div>
+                                <p className={`text-sm font-semibold ${tone.text}`}>{row.percentage}%</p>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      ) : null}
+
+      {activeTab === "dashboard" ? (
+        <>
+
       <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
         <Card className="rounded-[1.6rem] border border-black/10 bg-white shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
           <CardHeader>
@@ -704,6 +844,8 @@ export default function DashboardPage() {
           </div>
         ) : null}
       </section>
+        </>
+      ) : null}
     </div>
   );
 }
